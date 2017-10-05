@@ -303,6 +303,6 @@ l = ax.plot(bins, y, 'r-', linewidth=2)
 # Set labels
 ax.set_xlabel(r'$F_{obs}$', fontsize=16)
 ax.set_ylabel("Normalized Counts", fontsize=16)
-ax.set_title(r"$F_{obs}\,|\,\mu=%0.1f\,|\,\sigma=%0.1f$" % (mu_fobs, sigma_fobs), fontsize=14)
+ax.set_title(r"$F_{obs}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_fobs, sigma_fobs), fontsize=14)
 plt.tight_layout()
 plt.show()
