@@ -33,6 +33,7 @@ pf = PdfPages('kpol_plots.pdf')
 pg = PdfPages('Fpol_Histogram.pdf')
 ph = PdfPages('kpol_Histogram.pdf')
 pi = PdfPages('Kd_Histogram.pdf')
+pj = PdfPages('kobs_Histogram.pdf')
 
 ## Lists for writing out batch output results ##
 fobs_out = []
@@ -148,6 +149,25 @@ def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPo
 	plt.clf()
 	return r, k
 
+def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
+	name = asarray(input_list)
+	del input_list[:]
+	mu, sigma = name.mean(), name.std()
+	print("Mean of %s" % str(parameter), mu)
+	print("Std Dev of %s" % str(parameter), sigma)
+	fig, ax = plt.subplots(dpi=120)
+	n, bins, patches = plt.hist(name, 60, normed=1, facecolor='skyblue', alpha=0.75)
+	y = mlab.normpdf(bins, mu, sigma)
+	l = ax.plot(bins, y, 'r-', linewidth=2)
+	ax.set_xlabel(str(parameter), fontsize=16)
+	ax.set_ylabel("Normalized Counts", fontsize=16)
+	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (parameter, mu, sigma), fontsize=14)
+	plt.tight_layout()
+	plt.savefig(fileoutput, format = 'pdf')
+	plt.clf()
+	listoutput1.append(mu)
+	listoutput2.append(sigma)
+	return mu, sigma
 #===================
 # Kinetic Simulations
 # Correct and Incorrect Simulations share the same set of rate constants, save for the 
@@ -365,96 +385,12 @@ for value in RateConstants.index:
 		fobs_list.append(simulation_routine(params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
 		print "MC Error Iteration: %s / %s" % (iteration+1, MC_num)
 	sim_count += 1
+
+	ErrorAnalysis("Fobs", fobs_list, pg, fobs_out, fobs_out_err)
+	ErrorAnalysis("kpol", kpol_list, ph, kpol_out, kpol_out_err)
+	ErrorAnalysis("Kd", kd_list, pi, kd_out, kd_out_err)
+	ErrorAnalysis("kobs", kobs_list, pj, kobs_out, kobs_out_err)
 			
-	fobs = asarray(fobs_list)
-	del fobs_list[:]
-	mu_fobs, sigma_fobs = fobs.mean(), fobs.std()
-	print("Mean of Fobs:", mu_fobs)
-	print("Std.dev of Fobs:", sigma_fobs)
-	fobs_out.append(mu_fobs)
-	fobs_out_err.append(sigma_fobs)
-
-	kpol = asarray(kpol_list)
-	del kpol_list[:]
-	mu_kpol, sigma_kpol = kpol.mean(), kpol.std()
-	print("Mean of kpol:", mu_kpol)
-	print("Std.dev of kpol:", sigma_kpol)
-	kpol_out.append(mu_kpol)
-	kpol_out_err.append(sigma_kpol)
-
-	kd = asarray(kd_list)
-	del kd_list[:]
-	mu_kd, sigma_kd = kd.mean(), kd.std()
-	print("Mean of Kd:", mu_kd)
-	print("Std.dev of Kd:", sigma_kd)
-	kd_out.append(mu_kd)
-	kd_out_err.append(sigma_kd)
-
-	kobs = asarray(kobs_list)
-	del kobs_list[:]
-	mu_kobs, sigma_kobs = kobs.mean(), kobs.std()
-	print("Mean of kobs:", mu_kobs)
-	print("Std.dev of kobs:", sigma_kobs)
-	kobs_out.append(mu_kobs)
-	kobs_out_err.append(sigma_kobs)
-
-	# Plot distribution of calculated fobs
-	# - used this code: https://stackoverflow.com/questions/7805552/fitting-a-histogram-with-python
-	fig, ax = plt.subplots(dpi=120)
-	n, bins, patches = plt.hist(fobs, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu_fobs, sigma_fobs)
-	l = ax.plot(bins, y, 'r-', linewidth=2)
-
-	# Set labels
-	ax.set_xlabel(r'$F_{obs}$', fontsize=16)
-	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$F_{obs}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_fobs, sigma_fobs), fontsize=14)
-	plt.tight_layout()
-	plt.savefig(pg, format = 'pdf')
-	plt.clf()
-
-	# Plot distribution of calculated kpol
-	fig, ax = plt.subplots(dpi=120)
-	n, bins, patches = plt.hist(kpol, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu_kpol, sigma_kpol)
-	l = ax.plot(bins, y, 'r-', linewidth=2)
-
-	# Set labels
-	ax.set_xlabel(r'$k_{pol}$', fontsize=16)
-	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$K_{pol}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_kpol, sigma_kpol), fontsize=14)
-	plt.tight_layout()
-	plt.savefig(ph, format = 'pdf')
-	plt.clf()
-
-	# Plot distribution of calculated kd
-	fig, ax = plt.subplots(dpi=120)
-	n, bins, patches = plt.hist(kd, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu_kd, sigma_kd)
-	l = ax.plot(bins, y, 'r-', linewidth=2)
-
-	# Set labels
-	ax.set_xlabel(r'$K_{d}$', fontsize=16)
-	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$K_{d}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_kd, sigma_kd), fontsize=14)
-	plt.tight_layout()
-	plt.savefig(pi, format = 'pdf')
-	plt.clf()
-
-	# Plot distribution of calculated kobs
-	fig, ax = plt.subplots(dpi=120)
-	n, bins, patches = plt.hist(kobs, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu_kobs, sigma_kobs)
-	l = ax.plot(bins, y, 'r-', linewidth=2)
-
-	# Set labels
-	ax.set_xlabel(r'$k_{obs}$', fontsize=16)
-	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$k_{obs}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_kobs, sigma_kobs), fontsize=14)
-	plt.tight_layout()
-	plt.savefig(pi, format = 'pdf')
-	plt.clf()
-
 ## Write Out Final Results ##
 Master = zip(fobs_out, fobs_out_err, kpol_out, kpol_out_err, kd_out, kd_out_err, kobs_out, kobs_out_err)
 heading = ('Fobs (mean)', 'Fobs (Std. Dev.)', 'kpol (mean)', 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 'kobs @ 100uM dNTP', 'kobs_err')
