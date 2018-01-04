@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 ## Import Package Dependences ##
 import sys
 from numpy import *
@@ -177,7 +175,7 @@ elif sys.argv[3] == 'T7':
 	k2 = 660
 	k_2 = 1.6
 	k3 = 360
-	k_3 = 0
+	k_3 = .001
 	fitc_guess = 200
 else:
 	print 'Define Polymerase Model'
