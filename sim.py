@@ -121,6 +121,7 @@ def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPo
 	# Final plot for all [dNTP]. 
 	plt.ylabel('Product', fontsize = 14)
 	plt.xlabel('time (s)', fontsize = 14)
+	#plt.title("Index: %s, MC Error: %s" % (index, iteration))
 	plt.tight_layout()
 	plt.savefig(pp, format = 'pdf')
 	plt.clf()
@@ -322,7 +323,7 @@ def simulation_routine(params):
 # given by associated parameter error
 ######################################
 kpol_correct, kd_correct = SimulateSchemeOne()
-print kpol_correct, kd_correct
+print "kpol:", format(kpol_correct, '.2f'), "Kd:", format(kd_correct, '.2f')
 
 RateConstants = pd.read_csv(str(sys.argv[1]))
 RateConstants.columns = ['index', 'kt', 'kt_err', 'k_t', 'k_t_err', 'ki', 'ki_err', 'k_i', 'k_i_err', 'kta', 'kta_err', 'kat', 'kat_err']
@@ -340,7 +341,7 @@ for value in RateConstants.index:
 	if ki == 0:
 		k_2i = 0
 	else:
-		k_2i = 100
+		k_2i = k_2
 
 # Loop over number of MC iterations
 	fobs_list = []
@@ -463,6 +464,7 @@ with open('output.csv', 'wb') as f:
 	writer.writerow(error_info)
 	writer.writerow(heading)
 	writer.writerows(Master)
+
 #=========================
 
 pp.close()
