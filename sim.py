@@ -32,7 +32,7 @@ pp = PdfPages('kobs_plots.pdf')
 pf = PdfPages('kpol_plots.pdf')
 pg = PdfPages('Fpol_Histogram.pdf')
 ph = PdfPages('kpol_Histogram.pdf')
-pi = PdfPages('kd_Histogram.pdf')
+pi = PdfPages('Kd_Histogram.pdf')
 
 ## Lists for writing out batch output results ##
 fobs_out = []
@@ -313,7 +313,7 @@ def simulation_routine(params):
     kpol_list.append(kpol)
     kd_list.append(kd)
     kobs_list.append(kobs)
-    print kpol, kobs, kd, fobs
+    print "kpol:", format(kpol, '.3f'), "kobs[100 uM]:", format(kobs, '.3f'), "Kd:", format(kd, '.0f'), "Fpol:", fobs
     return fobs
 
 ######################################
@@ -389,7 +389,6 @@ for value in RateConstants.index:
 	kd_out.append(mu_kd)
 	kd_out_err.append(sigma_kd)
 
-##########
 	kobs = asarray(kobs_list)
 	del kobs_list[:]
 	mu_kobs, sigma_kobs = kobs.mean(), kobs.std()
@@ -430,13 +429,13 @@ for value in RateConstants.index:
 	# Plot distribution of calculated kd
 	fig, ax = plt.subplots(dpi=120)
 	n, bins, patches = plt.hist(kd, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu_kd, mad_mu)
+	y = mlab.normpdf(bins, mu_kd, sigma_kd)
 	l = ax.plot(bins, y, 'r-', linewidth=2)
 
 	# Set labels
 	ax.set_xlabel(r'$K_{d}$', fontsize=16)
 	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$K_{d}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_kd, mad_mu), fontsize=14)
+	ax.set_title(r"$K_{d}\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (mu_kd, sigma_kd), fontsize=14)
 	plt.tight_layout()
 	plt.savefig(pi, format = 'pdf')
 	plt.clf()
@@ -457,7 +456,7 @@ for value in RateConstants.index:
 
 ## Write Out Final Results ##
 Master = zip(fobs_out, fobs_out_err, kpol_out, kpol_out_err, kd_out, kd_out_err, kobs_out, kobs_out_err)
-heading = ('Fobs (mean)', 'Fobs (Std. Dev.)', 'kpol (mean)', 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 'kobs', 'kobs_err')
+heading = ('Fobs (mean)', 'Fobs (Std. Dev.)', 'kpol (mean)', 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 'kobs @ 100uM dNTP', 'kobs_err')
 error_info = ('Number of MC iteration', '%s' % MC_num)
 with open('output.csv', 'wb') as f:
 	writer = csv.writer(f)
