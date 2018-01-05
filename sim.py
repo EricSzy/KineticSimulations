@@ -26,7 +26,6 @@ if str(sys.argv[1]) == "-setup":
 		writer.writerow(setup_head)
 		exit()
 
-
 ## PDF Plot Outputs ##
 pp = PdfPages('kobs_plots.pdf')
 pf = PdfPages('kpol_plots.pdf')
@@ -88,66 +87,83 @@ def polfit (X,Y, p0):
 	nlp = NLP(chi2, p0)
 	result = nlp.solve('ralg', iprint = -1)
 	return result.xf
-#=======================
 #=====================
-def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPolGuess, KdGuess):
-#Fitting for kobs and kpol. Inputs are the approprate Scheme Dict of [dNTP] and Time point resutls, as well as
-#the approprate Correct/Incorrect Time and [dNTP] conditions 
-	x = 0
-	ListOfkObs = []
-	for key in SchemeDict.keys():
-	# Fetch n or n+x list from Dict of 'product populations'
-		temp_list = list(SchemeDict.values()[x])
-	# Flatten list of list to single list
-		ProdValues = [val for sublist in temp_list for val in sublist]
-	
-	# Add one to access next key in next cycle
-		x = x+1 
-		# Data formatting
-		data1 = column_stack(TimeList)
-		data2 = column_stack(ProdValues)
-		# Fitting for kobs
-		a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess])
-		ListOfkObs.append(R)
+def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPolGuess, KdGuess, index, iteration):
+	if iteration == 0:
+		x = 0
+		ListOfkObs = []
+		for key in SchemeDict.keys():
+
+			temp_list = list(SchemeDict.values()[x]) # Fetch n or n+x list from Dict of 'product populations'
+			ProdValues = [val for sublist in temp_list for val in sublist] # Flatten list of list to single list
+			
+			x = x+1 # Add one to access next key in next cycle
+			data1 = column_stack(TimeList) # Data formatting
+			data2 = column_stack(ProdValues) # Data formatting
+			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess]) # Fitting for kobs
+			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
+
+			plt.plot(data1, data2, 'ko')
+			if TimeList == TimePtsCorrect:
+				test_time = linspace(0,1,1000)
+				test_result1 = [(a*(1-exp(value*-R))) for value in test_time]
+				plt.plot(test_time, test_result1, color = 'C0')
+				plt.title("Correct incorporation")
+			else:
+				test_time = linspace(0,60,1000)
+				test_result1 = [(a*(1-exp(value*-R))) for value in test_time]
+				plt.plot(test_time, test_result1, color = 'C0')
+				plt.title("Incorrect Incorporation - Index %s" % index)
+		# Final plot for all [dNTP]
+		plt.ylabel('Product', fontsize = 14)
+		plt.xlabel('time (s)', fontsize = 14)
+		plt.tight_layout()
+		plt.savefig(pp, format = 'pdf')
+		plt.clf()
+
+		# Fitting for kpol from kobs values
+		
+		data1 = column_stack(NTPlist) # Data Handling
+		data2 = column_stack(ListOfkObs) 
+		# Fitting for kpol (k = Kd; r = kpol)
+		k,r = polfit(data1, data2, [kPolGuess, KdGuess])
+		# Plotting	
 		plt.plot(data1, data2, 'ko')
 		if TimeList == TimePtsCorrect:
-			test_time = linspace(0,1,1000)
-			test_result1 = [(a*(1-exp(value*-R))) for value in test_time]
-			plt.plot(test_time, test_result1, color = 'C0')
+			test_ntp = linspace(0,200,1000)
+			test_result = [(r*x)/(k+x) for x in test_ntp]
+			plt.title("Correct incorporation")
 		else:
-			test_time = linspace(0,60,1000)
-			test_result1 = [(a*(1-exp(value*-R))) for value in test_time]
-			plt.plot(test_time, test_result1, color = 'C0')
-		
-	# Final plot for all [dNTP]. 
-	plt.ylabel('Product', fontsize = 14)
-	plt.xlabel('time (s)', fontsize = 14)
-	#plt.title("Index: %s, MC Error: %s" % (index, iteration))
-	plt.tight_layout()
-	plt.savefig(pp, format = 'pdf')
-	plt.clf()
+			test_ntp = linspace(0,1500,1000)
+			test_result = [(r*x)/(k+x) for x in test_ntp]
+			plt.title("Incorrect Incorporation - Index %s" % index)
+		plt.plot(test_ntp, test_result)
+		plt.xlabel('dNTP Conc. (uM)', fontsize=14)
+		plt.ylabel('kobs (s-$^1)$', fontsize = 14)
+		plt.tight_layout()
+		plt.savefig(pf, format = 'pdf')
+		plt.clf()
+		return r, k
 	
-	## Fitting for kpol from kobs values ##
-	# Data Formatting
-	data1 = column_stack(NTPlist)
-	data2 = column_stack(ListOfkObs)
-	# Fitting
-	k,r = polfit(data1, data2, [kPolGuess, KdGuess])
-	# Plotting	
-	plt.plot(data1, data2, 'ko')
-	if TimeList == TimePtsCorrect:
-		test_ntp = linspace(0,200,1000)
-		test_result = [(r*x)/(k+x) for x in test_ntp]
-	else:
-		test_ntp = linspace(0,1500,1000)
-		test_result = [(r*x)/(k+x) for x in test_ntp]
-	plt.plot(test_ntp, test_result)
-	plt.xlabel('dNTP Conc. (uM)', fontsize=14)
-	plt.ylabel('kobs (s-$^1)$', fontsize = 14)
-	plt.tight_layout()
-	plt.savefig(pf, format = 'pdf')
-	plt.clf()
-	return r, k
+	else: 
+		x = 0
+		ListOfkObs = []
+		for key in SchemeDict.keys():
+		
+			temp_list = list(SchemeDict.values()[x]) # Fetch n or n+x list from Dict of 'product populations'
+			ProdValues = [val for sublist in temp_list for val in sublist] # Flatten list of list to single list
+
+			x = x+1 # Add one to access next key
+			data1 = column_stack(TimeList)
+			data2 = column_stack(ProdValues)
+			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess]) #Fit for kobs
+			ListOfkObs.append(R) #Append R (kobs) to list of kobs for use in kpol fit
+
+		## Fitting for kpol from kobs values ##
+		data1 = column_stack(NTPlist)
+		data2 = column_stack(ListOfkObs)
+		k,r = polfit(data1, data2, [kPolGuess, KdGuess])
+		return r, k
 
 def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	name = asarray(input_list)
@@ -238,7 +254,6 @@ def SimulateSchemeOne():
 			C = zeros(T.shape)
 			D = zeros(T.shape)
 			E = zeros(T.shape)
-			
 
 			for i,t in enumerate(T):
 				A = dot(dot(M,diag(exp(w*t))), M_1)
@@ -247,19 +262,19 @@ def SimulateSchemeOne():
 				D[i] = dot(A[2,:], C0)
 				E[i] = dot(A[3,:], C0)
 				
-				
 			SchemeOneProduct.append(E[-1])
-# Data Handling
+
+	# Data Handling
 	SchemeOneDct  = collections.OrderedDict()
 	x = 0
 	for Number in NTPConcCorrect:
 		SchemeOneDct['%s' % Number] = [SchemeOneProduct[x:x+len(TimePtsCorrect)]] 
 		x = x + len(TimePtsCorrect)
 	
-	kpolOne, kdOne = Fitting(SchemeOneDct, TimePtsCorrect, NTPConcCorrect, .99, 5, fitc_guess, k_1c / 100)
+	kpolOne, kdOne = Fitting(SchemeOneDct, TimePtsCorrect, NTPConcCorrect, .99, 5, fitc_guess, k_1c / 100, 0, 0)
 	return kpolOne, kdOne
 	
-def SimulateSchemeTwo(kt, k_t, ki, k_i, kti, kit, k_2i):
+def SimulateSchemeTwo(kt, k_t, ki, k_i, kti, kit, k_2i, index, iteration):
 	SchemeTwoProduct = []
 	for Conc in NTPConcMismatch:
 		C0 = array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -313,22 +328,21 @@ def SimulateSchemeTwo(kt, k_t, ki, k_i, kti, kit, k_2i):
 			SchemeTwoProduct.append(G[-1])
 
 	SchemeTwoDct = collections.OrderedDict()
-	
 	x = 0
 	for Number in NTPConcMismatch:
 		SchemeTwoDct['%s' % Number] = [SchemeTwoProduct[x:x+len(TimePtsMismatch)]]
 		x = x + len(TimePtsMismatch)
 
-	kpolTwo, kdTwo = Fitting(SchemeTwoDct, TimePtsMismatch, NTPConcMismatch, .9, .5, .5, k_1i / 100)
+	kpolTwo, kdTwo = Fitting(SchemeTwoDct, TimePtsMismatch, NTPConcMismatch, .9, .5, .5, k_1i / 100, index, iteration)
 	return kpolTwo, kdTwo
 
 def simulation_routine(params):
 
     # Unpack params/errors
-    kt, k_t, ki, k_i, kat, kta, k_2i = params
+    kt, k_t, ki, k_i, kat, kta, k_2i, index, iteration = params
 
     # Run the Simulation
-    kpol, kd = SimulateSchemeTwo(kt, k_t, ki, k_i, kat, kta, k_2i)
+    kpol, kd = SimulateSchemeTwo(kt, k_t, ki, k_i, kat, kta, k_2i, index, iteration)
     fobs = (kpol / kd) / (kpol_correct / kd_correct)
     kobs = (kpol * 100) / (kd + 100)
     kpol_list.append(kpol)
@@ -346,7 +360,8 @@ kpol_correct, kd_correct = SimulateSchemeOne()
 print "kpol:", format(kpol_correct, '.2f'), "Kd:", format(kd_correct, '.2f')
 
 RateConstants = pd.read_csv(str(sys.argv[1]))
-RateConstants.columns = ['index', 'kt', 'kt_err', 'k_t', 'k_t_err', 'ki', 'ki_err', 'k_i', 'k_i_err', 'kta', 'kta_err', 'kat', 'kat_err']
+RateConstants.columns = ['index', 'kt', 'kt_err', 'k_t', 'k_t_err', 'ki', 'ki_err', 
+							'k_i', 'k_i_err', 'kta', 'kta_err', 'kat', 'kat_err']
 
 sim_num = len(list(enumerate(RateConstants.index, 1)))
 sim_count = 1
@@ -377,12 +392,8 @@ for value in RateConstants.index:
 		new_kat = random.normal(loc=kat, scale=kat_err)
 		new_kta = random.normal(loc=kta, scale=kta_err)
 
-    	# Now feed these randomly drawn permutations of the parameters
-    	# to your target function (i.e. your kinetic sim) and get the
-    	# distribution of fobs (or whatever) values. From this you
-    	# can calculate the SD/SEM/etc of fobs using the error in 
-    	# all the dependent parameters
-		fobs_list.append(simulation_routine(params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
+    	# Now feed these randomly drawn permutations of the parameters to target function
+		fobs_list.append(simulation_routine(params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i, sim_count, iteration]))
 		print "MC Error Iteration: %s / %s" % (iteration+1, MC_num)
 	sim_count += 1
 
