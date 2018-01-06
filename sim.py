@@ -1,24 +1,25 @@
-## Import Package Dependences ##
+# Dependences
 import sys
+import csv
 from numpy import *
 from openopt import *
 import matplotlib.pyplot as plt
-import csv
-import collections
 import pandas as pd
-from scipy.optimize import curve_fit
-from scipy.interpolate import interp1d
-from scipy.interpolate import spline
-from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.mlab as mlab
+from matplotlib.backends.backend_pdf import PdfPages
+
+#Random Seed For Error Selection
 random.seed(1)
 
-
 #==============================
-## Generate input csv file with column headings
-# > python sim.py -setup
+# Generate input .csv file with column headings
+# >python sim.py -setup
 
-setup_head = ('index', 'kt (s-1)', 'kt error', 'k_t (s-1)', 'k_t error', 'ki (s-1)', 'ki error', 'k_i (s-1)', 'k_i error', 'kta (s-1)', 'kta error', 'kat (s-1)', 'kat error')
+setup_head = ('index', 'kt (s-1)', 'kt error',
+			 'k_t (s-1)', 'k_t error', 'ki (s-1)', 
+			 'ki error', 'k_i (s-1)', 'k_i error', 
+			 'kta (s-1)', 'kta error', 'kat (s-1)', 
+			 'kat error')
 
 if str(sys.argv[1]) == "-setup":
 	with open('batch_input.csv', 'wb') as s:
@@ -26,7 +27,7 @@ if str(sys.argv[1]) == "-setup":
 		writer.writerow(setup_head)
 		exit()
 
-## PDF Plot Outputs ##
+## Output PDF plots
 pp = PdfPages('kobs_plots.pdf')
 pf = PdfPages('kpol_plots.pdf')
 pg = PdfPages('Fpol_Histogram.pdf')
@@ -34,7 +35,7 @@ ph = PdfPages('kpol_Histogram.pdf')
 pi = PdfPages('Kd_Histogram.pdf')
 pj = PdfPages('kobs_Histogram.pdf')
 
-## Lists for writing out batch output results ##
+## Empty List for holding batch output results
 fobs_out = []
 fobs_out_err = []
 kpol_out = []
@@ -58,7 +59,7 @@ NTPConcCorrect = [0.625, 1.25, 2.5, 5, 10, 20, 40, 80, 200]
 NTPConcMismatch = [50, 100, 200, 300, 500, 750, 1000, 1500]
 
 ##=====================##
-# Fitting Equations
+## Fitting Equations
 ##====================##
 def expfun(p, X):
 	a,R = p
@@ -87,20 +88,20 @@ def polfit (X,Y, p0):
 	nlp = NLP(chi2, p0)
 	result = nlp.solve('ralg', iprint = -1)
 	return result.xf
-#=====================
-def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPolGuess, KdGuess, index, iteration):
+##=====================##
+## Fit Function
+##====================##
+#Takes in the [product] from the kinetic schemes and calculates
+#kpol and Kd as is done with a Pre-Steady-State Kinetic Experiment.
+def Fitting(idf, TimeList, NTPlist, ProdAmblitudeFitGuess, 
+			kObsGuess, kPolGuess, KdGuess, index, iteration):
+	ListOfkObs = []
 	if iteration == 0:
-		x = 0
-		ListOfkObs = []
-		for key in SchemeDict.keys():
+		for number in NTPlist:
+			data1 = column_stack(TimeList)
+			data2 = column_stack(idf["%s" % number].values.tolist())
+			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess])
 
-			temp_list = list(SchemeDict.values()[x]) # Fetch n or n+x list from Dict of 'product populations'
-			ProdValues = [val for sublist in temp_list for val in sublist] # Flatten list of list to single list
-			
-			x = x+1 # Add one to access next key in next cycle
-			data1 = column_stack(TimeList) # Data formatting
-			data2 = column_stack(ProdValues) # Data formatting
-			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess]) # Fitting for kobs
 			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
 
 			plt.plot(data1, data2, 'ko')
@@ -146,23 +147,19 @@ def Fitting(SchemeDict, TimeList, NTPlist, ProdAmblitudeFitGuess, kObsGuess, kPo
 		return r, k
 	
 	else: 
-		x = 0
-		ListOfkObs = []
-		for key in SchemeDict.keys():
-		
-			temp_list = list(SchemeDict.values()[x]) # Fetch n or n+x list from Dict of 'product populations'
-			ProdValues = [val for sublist in temp_list for val in sublist] # Flatten list of list to single list
-
-			x = x+1 # Add one to access next key
+		for number in NTPlist:
 			data1 = column_stack(TimeList)
-			data2 = column_stack(ProdValues)
-			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess]) #Fit for kobs
-			ListOfkObs.append(R) #Append R (kobs) to list of kobs for use in kpol fit
+			data2 = column_stack(idf["%s" % number].values.tolist())
+			a,R = expfit(data1, data2, [ProdAmblitudeFitGuess, kObsGuess])
 
-		## Fitting for kpol from kobs values ##
-		data1 = column_stack(NTPlist)
-		data2 = column_stack(ListOfkObs)
+			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
+		
+		data1 = column_stack(NTPlist) # Data Handling
+		data2 = column_stack(ListOfkObs) 
+		# Fitting for kpol (k = Kd; r = kpol)
 		k,r = polfit(data1, data2, [kPolGuess, KdGuess])
+		# Plotting	
+		plt.plot(data1, data2, 'ko')
 		return r, k
 
 def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
@@ -184,39 +181,23 @@ def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	listoutput1.append(mu)
 	listoutput2.append(sigma)
 	return mu, sigma
+
 #===================
 # Kinetic Simulations
 # Correct and Incorrect Simulations share the same set of rate constants, save for the 
 # inclusion of tautomerization/ionization for incorrect incorporations.
+polymerase_df = pd.DataFrame(
+	{"k_1c" : [1900, 1000, 1000],
+	 "k_1i" : [70000, 65000, 70000],
+	 "k2": [268, 1365, 660],
+	 "k_2": [100, 11.9, 1.6],
+	 "k3": [9000, 6.4, 360],
+	 "k_3": [.004, .001, .001],
+	 "fitc_guess" : [268, 6, 200]},
+	 index = ['E', 'B', 'T7'])
+polymerase_df = polymerase_df[['k_1c', 'k_1i', 'k2', 'k_2', 'k3', 'k_3', 'fitc_guess']]
 
-# Shared rate constants are declared here; dNTP on and off rate are declared in each scheme
-if sys.argv[3] == 'E':
-	k_1c = 1900
-	k_1i = 70000
-	k2 = 268 #forward conformational change rate constant
-	k_2 = 100 #reverse conformational change rate constant
-	k3 = 9000 #forward chemisty rate constant
-	k_3 = .004 #reverse chemisty rate constant
-	fitc_guess = 268
-elif sys.argv[3] == 'B':
-	k_1c = 1000
-	k_1i = 65000
-	k2 = 1365
-	k_2 = 11.9
-	k3 = 6.4
-	k_3 = .001
-	fitc_guess = 6
-elif sys.argv[3] == 'T7':
-	k_1c = 1000
-	k_1i = 70000
-	k2 = 660
-	k_2 = 1.6
-	k3 = 360
-	k_3 = .001
-	fitc_guess = 200
-else:
-	print 'Define Polymerase Model'
-	exit()
+k_1c, k_1i, k2, k_2, k3, k_3, fitc_guess = polymerase_df.T["%s" % sys.argv[3]].values.tolist()
 
 k_2t = k_2
 k2t = k2 
@@ -226,6 +207,7 @@ k2i = k2
 #Run Kinetic Sheme #1 
 def SimulateSchemeOne():
 	SchemeOneProduct = []
+	df = pd.DataFrame({'TIMEPTS':TimePtsCorrect}).set_index('TIMEPTS')
 	for Conc in NTPConcCorrect:
 		# Defining additioanl rate constants and starting populations
 		C0 = array([1.0, 0.0, 0.0, 0.0]) #Simulation starts with 100% population as E-DNA. 
@@ -263,19 +245,15 @@ def SimulateSchemeOne():
 				E[i] = dot(A[3,:], C0)
 				
 			SchemeOneProduct.append(E[-1])
-
-	# Data Handling
-	SchemeOneDct  = collections.OrderedDict()
-	x = 0
-	for Number in NTPConcCorrect:
-		SchemeOneDct['%s' % Number] = [SchemeOneProduct[x:x+len(TimePtsCorrect)]] 
-		x = x + len(TimePtsCorrect)
+		df['%s' % Conc] = SchemeOneProduct
+		del SchemeOneProduct[:]
 	
-	kpolOne, kdOne = Fitting(SchemeOneDct, TimePtsCorrect, NTPConcCorrect, .99, 5, fitc_guess, k_1c / 100, 0, 0)
+	kpolOne, kdOne = Fitting(df, TimePtsCorrect, NTPConcCorrect, .99, 5, fitc_guess, k_1c / 100, 0, 0)
 	return kpolOne, kdOne
 	
 def SimulateSchemeTwo(kt, k_t, ki, k_i, kti, kit, k_2i, index, iteration):
 	SchemeTwoProduct = []
+	df2 = pd.DataFrame({'TIMEPTS':TimePtsMismatch}).set_index('TIMEPTS')
 	for Conc in NTPConcMismatch:
 		C0 = array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 		k1 = Conc * 100 # dNTP on rate	
@@ -326,14 +304,10 @@ def SimulateSchemeTwo(kt, k_t, ki, k_i, kti, kit, k_2i, index, iteration):
 				
 				
 			SchemeTwoProduct.append(G[-1])
+		df2['%s' % Conc] = SchemeTwoProduct
+		del SchemeTwoProduct[:]
 
-	SchemeTwoDct = collections.OrderedDict()
-	x = 0
-	for Number in NTPConcMismatch:
-		SchemeTwoDct['%s' % Number] = [SchemeTwoProduct[x:x+len(TimePtsMismatch)]]
-		x = x + len(TimePtsMismatch)
-
-	kpolTwo, kdTwo = Fitting(SchemeTwoDct, TimePtsMismatch, NTPConcMismatch, .9, .5, .5, k_1i / 100, index, iteration)
+	kpolTwo, kdTwo = Fitting(df2, TimePtsMismatch, NTPConcMismatch, .9, .5, .5, k_1i / 100, index, iteration)
 	return kpolTwo, kdTwo
 
 def simulation_routine(params):
