@@ -16,12 +16,21 @@ source activate sim
 python sim.py [input.csv] [# of MC Error Iterations] [Polymerase Model]
 ```
 
-Example data set can be found in 'Example' and replicated with
+A template of the input csv can be created with:
+
+```bash
+python sim.py -setup
+```
+
+Example data set can be found in 'Example' and was generated with
 
 ```bash
 python sim.py example_input.csv 200 E
 ```
 This reads in the rate constants and errors from the example_input.csv file and performed 200 MC error iterations using the rate constants for human polymerase epsilon. 
+
 E = pol epsilon
+
 B = pol Beta
+
 T7 = T7
