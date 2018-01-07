@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Dependences
 import sys
 import csv
@@ -89,7 +91,7 @@ def polfit (X,Y, p0):
 	result = nlp.solve('ralg', iprint = -1)
 	return result.xf
 ##=====================##
-## Fit Function
+## Fit Functions
 ##====================##
 #Takes in the [product] from the kinetic schemes and calculates
 #kpol and Kd as is done with a Pre-Steady-State Kinetic Experiment.
@@ -97,7 +99,7 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 	aGuess, kobsGuess, kpolGuess, kdGuess = p0
 	ListOfkObs = []
 	idf['TIMEPTS'] = idf.index
-	if iteration == 0:
+	if iteration == 0: #Generates kobs and kpol plots for the 1st MC erro iteration of each set of rate constants.
 		for number in NTPlist:
 			data1 = column_stack(idf['TIMEPTS'].values.tolist())
 			data2 = column_stack(idf["%s" % number].values.tolist())
@@ -117,7 +119,7 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 		# Final plot for all [dNTP]
 		plt.ylabel('Product', fontsize = 14)
 		plt.xlabel('time (s)', fontsize = 14)
-		plt.ylim(0, 1)
+		plt.ylim(0, 1.1)
 		plt.tight_layout()
 		plt.savefig(pp, format = 'pdf')
 		plt.clf()
@@ -140,7 +142,7 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 			plt.title("Incorrect Incorporation - Index %s" % index)
 		plt.plot(fit_ntp, fit_result)
 		plt.xlabel('dNTP concentration (uM)', fontsize=14)
-		plt.ylabel('kobs (s-$^1)$', fontsize = 14)
+		plt.ylabel('kobs (s$^{-1}$)', fontsize = 14)
 		plt.tight_layout()
 		plt.savefig(pf, format = 'pdf')
 		plt.clf()
@@ -161,6 +163,7 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 		k,r = polfit(data3, data4, [kpolGuess, kdGuess])
 		return r, k
 
+# Calculates sigma and mu for given input parameter
 def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	raw_results = asarray(input_list)
 	del input_list[:]
@@ -181,9 +184,13 @@ def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	return mu, sigma
 
 #===================
-# Kinetic Simulations
+# Kinetic Schemes
+#===================
+
 # Correct and Incorrect Simulations share the same set of rate constants, save for the 
 # inclusion of tautomerization/ionization for incorrect incorporations.
+
+#DataFrame for polymerase microscopic rate constants
 polymerase_df = pd.DataFrame(
 	{"k_1c" : [1900, 1000, 1000],
 	 "k_1i" : [70000, 65000, 70000],
@@ -237,7 +244,7 @@ def SchemeOne(time, conc):
 		E[i] = dot(A[3,:], C0)
 	return E[-1]
 
-#Mathematics for kinetic scheme #1 Incorrect Incorporation 
+#Mathematics for kinetic scheme #2 Incorrect Incorporation 
 def SchemeTwo(time, conc, rates):
 	kt, k_t, ki, k_i, kti, kit, k_2i = rates
 	C0 = array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -320,6 +327,7 @@ def simulation_routine(index, iteration, params):
 # parameters from normal distribution
 # given by associated parameter error
 ######################################
+
 kpol_correct, kd_correct = RunSchemeOne()
 print "kpol:", format(kpol_correct, '.2f'), "Kd:", format(kd_correct, '.2f')
 
@@ -341,7 +349,7 @@ for value in RateConstants.index:
 	#k_2i is assumed equal to k_2t by default. 
 	#This if/then statment sets k_2i to 0 if ki is 0.
 	#This prevents backflow to ES2 via product.
-	if ki == 0:
+	if ki == 0 and kta == 0:
 		k_2i = 0
 	else:
 		k_2i = k_2
