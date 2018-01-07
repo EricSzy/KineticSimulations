@@ -3,7 +3,7 @@
 
 ## Installation in a Conda environment
 An Anaconda environment can be used to easily install the required Python dependendcies.
-The *conda_.sh* bash script will install the required Python dependencies.
+The *conda_sim.sh* bash script will install the required Python dependencies.
 
 ```bash
 bash conda_sim.sh sim
