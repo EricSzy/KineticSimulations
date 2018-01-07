@@ -22,7 +22,7 @@ A template of the input csv can be created with:
 python sim.py -setup
 ```
 
-Example data set can be found in 'Example' and was generated with
+Example data set can be found in 'Example'. The example_input.csv was used with the following command in this example. 
 
 ```bash
 python sim.py example_input.csv 200 E
