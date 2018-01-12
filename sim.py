@@ -167,21 +167,30 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	raw_results = asarray(input_list)
 	del input_list[:]
-	mu, sigma = raw_results.mean(), raw_results.std()
-	print("Mean of %s" % str(parameter), mu)
-	print("Std Dev of %s" % str(parameter), sigma)
+	#Outlier Detection Based on Modified Z-score
+	#Outliers with mZ-score > 3.75 are removed from the reported sigma and mu
+	mu, sigma, median_value = raw_results.mean(), raw_results.std(), median(raw_results)
+	adjusted = [math.fabs(x - median_value) for x in raw_results]
+	median_adjusted = median(adjusted)
+	z_score = [(0.6745 * x) / (median_adjusted) for x in adjusted]
+	trim_outliers = [x for (x,y) in zip(raw_results, z_score) if y < 3.75]
+	trim = asarray(trim_outliers)
+	mu_adj, sigma_adj = trim.mean(), trim.std()
+	print("Mean of %s" % str(parameter), mu_adj)
+	print("Std Dev of %s" % str(parameter), sigma_adj)
+	
 	fig, ax = plt.subplots(dpi=120)
 	n, bins, patches = plt.hist(raw_results, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	y = mlab.normpdf(bins, mu, sigma)
-	l = ax.plot(bins, y, 'r-', linewidth=2)
+	x = linspace(mu_adj - 4 * sigma_adj, mu_adj + 4 * sigma_adj, 100)
+	plt.plot(x, mlab.normpdf(x, mu_adj, sigma_adj))
+	
 	ax.set_xlabel(str(parameter), fontsize=16)
 	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (parameter, mu, sigma), fontsize=14)
+	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (parameter, mu_adj, sigma_adj), fontsize=14)
 	plt.tight_layout()
 	plt.savefig(fileoutput, format = 'pdf')
-	listoutput1.append(mu)
-	listoutput2.append(sigma)
-	return mu, sigma
+	listoutput1.append(mu_adj)
+	listoutput2.append(sigma_adj)
 
 #===================
 # Kinetic Schemes
