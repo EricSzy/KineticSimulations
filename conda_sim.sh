@@ -17,6 +17,6 @@ export envname=$1
 echo $envname
 conda create -y --name $envname python=$python_version
 source activate $envname
-conda install -y -q -c numpy matplotlib pandas 
-pip install openopt FuncDesigner DerApproximator
+conda install -y -q -c numpy matplotlib pandas scipy
+
 

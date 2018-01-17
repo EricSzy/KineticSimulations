@@ -4,11 +4,11 @@
 import sys
 import csv
 from numpy import *
-from openopt import *
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.mlab as mlab
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy.optimize import curve_fit
 
 #Random Seed For Error Selection
 random.seed(1)
@@ -63,33 +63,13 @@ NTPConcMismatch = [50, 100, 200, 300, 500, 750, 1000, 1500]
 ##=====================##
 ## Fitting Equations
 ##====================##
-def expfun(p, X):
-	a,R = p
-	return a*(1-exp(-R*X))
-#==
-def expfit(X, Y, p0):
-	#-
-	def chi2(p):
-		YS = expfun(p,X)
-		return sum((Y-YS)**2)
-	#-
-	nlp = NLP(chi2, p0)
-	result = nlp.solve('ralg', iprint= -1)
-	return result.xf
-#==
-def polfun(p, X):
-	k,r = p
+def ExpFit(X, a, R):
+	#a,R = p
+	return a *(1-exp(-R*X))
+
+def PolFit(X, k, r):
 	return ((r*X)/(k+X))
-#==
-def polfit (X,Y, p0):
-	#-
-	def chi2(p):
-		YS = polfun(p, X)
-		return sum((Y-YS)**2)
-	#-
-	nlp = NLP(chi2, p0)
-	result = nlp.solve('ralg', iprint = -1)
-	return result.xf
+
 ##=====================##
 ## Fit Functions
 ##====================##
@@ -100,10 +80,12 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 	ListOfkObs = []
 	idf['TIMEPTS'] = idf.index
 	if iteration == 0: #Generates kobs and kpol plots for the 1st MC erro iteration of each set of rate constants.
+		plt.clf()
 		for number in NTPlist:
-			data1 = column_stack(idf['TIMEPTS'].values.tolist())
-			data2 = column_stack(idf["%s" % number].values.tolist())
-			a,R = expfit(data1, data2, [aGuess, kobsGuess])
+			data1 = idf['TIMEPTS'].values.tolist()
+			data2 = idf["%s" % number].values.tolist()
+			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
+			a,R = popt[0], popt[1]
 			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
 			plt.plot(data1, data2, 'ko')
 			if TimeList == TimePtsCorrect:
@@ -126,10 +108,10 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 
 		# Fitting for kpol from kobs values
 		
-		data3 = column_stack(NTPlist) # Data Handling
-		data4 = column_stack(ListOfkObs) 
-		# Fitting for kpol (k = Kd; r = kpol)
-		k,r = polfit(data3, data4, [kpolGuess, kdGuess])
+		data3 = NTPlist # Data Handling
+		data4 = ListOfkObs		
+		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
+		k, r = popt[0], popt[1]
 		# Plotting	
 		plt.plot(data3, data4, 'ko')
 		if TimeList == TimePtsCorrect:
@@ -146,21 +128,21 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 		plt.tight_layout()
 		plt.savefig(pf, format = 'pdf')
 		plt.clf()
-		
 		return r, k
 	
 	else: 
 		for number in NTPlist:
-			data1 = column_stack(idf['TIMEPTS'].values.tolist())
-			data2 = column_stack(idf["%s" % number].values.tolist())
-			a,R = expfit(data1, data2, [aGuess, kobsGuess])
-
+			data1 = idf['TIMEPTS'].values.tolist()
+			data2 = idf["%s" % number].values.tolist()
+			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
+			a,R = popt[0], popt[1]
 			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
 
 		# Fitting for kpol (k = Kd; r = kpol)
-		data3 = column_stack(NTPlist) # Data Handling
-		data4 = column_stack(ListOfkObs) 
-		k,r = polfit(data3, data4, [kpolGuess, kdGuess])
+		data3 = NTPlist # Data Handling
+		data4 = ListOfkObs		
+		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
+		k, r = popt[0], popt[1]
 		return r, k
 
 # Calculates sigma and mu for given input parameter
