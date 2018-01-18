@@ -140,7 +140,7 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 		return r, k
 
 # Calculates sigma and mu for given input parameter
-def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
+def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2, index):
 	raw_results = np.asarray(input_list)
 	del input_list[:]
 	#Outlier Detection Based on Modified Z-score
@@ -161,7 +161,7 @@ def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	
 	ax.set_xlabel(str(parameter), fontsize=16)
 	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$" % (parameter, mu_adj, sigma_adj), fontsize=14)
+	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$ | index = %s" % (parameter, mu_adj, sigma_adj, index), fontsize=14)
 	plt.tight_layout()
 	plt.savefig(fileoutput, format = 'pdf')
 	listoutput1.append(mu_adj)
@@ -359,14 +359,14 @@ for value in RateConstants.index:
     	# Now feed these randomly drawn permutations of the parameters to simulations
 		fobs_list.append(simulation_routine(sim_count, iteration, params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
 		print "MC Error Iteration: %s / %s" % (iteration+1, MC_num)
+	
+	# Calculates sigma and mu from MC error interations for each parameter
+	ErrorAnalysis("Fobs", fobs_list, pg, fobs_mu, fobs_sigma, sim_count)
+	ErrorAnalysis("kpol", kpol_list, ph, kpol_mu, kpol_sigma, sim_count)
+	ErrorAnalysis("Kd", kd_list, pi, kd_mu, kd_sigma, sim_count)
+	ErrorAnalysis("kobs", kobs_list, pj, kobs_mu, kobs_sigma, sim_count)
 	sim_count += 1
 
-	# Calculates sigma and mu from MC error interations for each parameter
-	ErrorAnalysis("Fobs", fobs_list, pg, fobs_mu, fobs_sigma)
-	ErrorAnalysis("kpol", kpol_list, ph, kpol_mu, kpol_sigma)
-	ErrorAnalysis("Kd", kd_list, pi, kd_mu, kd_sigma)
-	ErrorAnalysis("kobs", kobs_list, pj, kobs_mu, kobs_sigma)
-			
 # Write Out Final Results to 'output.csv'
 Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma, kobs_mu, kobs_sigma)
 error_info = ('Number of MC iteration', '%s' % MC_num)
