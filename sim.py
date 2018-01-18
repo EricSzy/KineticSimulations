@@ -1,27 +1,29 @@
 #!/usr/bin/python
 
-# Dependences
+# Import Dependences
 import sys
 import csv
-from numpy import *
-import matplotlib.pyplot as plt
+
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
+
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.optimize import curve_fit
 
-#Random Seed For Error Selection
-random.seed(1)
+# Random Seed For Error Selection
+np.random.seed(1)
 
 #==============================
 # Generate input .csv file with column headings
 # >python sim.py -setup
 
 setup_head = ('index', 'kt (s-1)', 'kt error',
-			 'k_t (s-1)', 'k_t error', 'ki (s-1)', 
-			 'ki error', 'k_i (s-1)', 'k_i error', 
-			 'kta (s-1)', 'kta error', 'kat (s-1)', 
-			 'kat error')
+				'k_t (s-1)', 'k_t error', 'ki (s-1)',
+				'ki error', 'k_i (s-1)', 'k_i error',
+				'kta (s-1)', 'kta error', 'kat (s-1)',
+				'kat error')
 
 if str(sys.argv[1]) == "-setup":
 	with open('batch_input.csv', 'wb') as s:
@@ -29,7 +31,7 @@ if str(sys.argv[1]) == "-setup":
 		writer.writerow(setup_head)
 		exit()
 
-## Output PDF plots
+## PDFs for output plots
 pp = PdfPages('kobs_plots.pdf')
 pf = PdfPages('kpol_plots.pdf')
 pg = PdfPages('Fpol_Histogram.pdf')
@@ -37,65 +39,60 @@ ph = PdfPages('kpol_Histogram.pdf')
 pi = PdfPages('Kd_Histogram.pdf')
 pj = PdfPages('kobs_Histogram.pdf')
 
-## Empty List for holding batch output results
-fobs_out = []
-fobs_out_err = []
-kpol_out = []
-kpol_out_err =[]
-kd_out = []
-kd_out_err = []
-kobs_out = []
-kobs_out_err = []
+# Empty lists for holding output results
+fobs_mu = []
+fobs_sigma = []
+kpol_mu = []
+kpol_sigma = []
+kd_mu = []
+kd_sigma = []
+kobs_mu = []
+kobs_sigma = []
 
 # Number of MonteCarlo iterations
 MC_num = int(sys.argv[2])
 
-# Scheme 1: Correct incorporation of dCTP-dG base pair
-# Scheme 2: Incorrect incorporation of dTTP-dG base pair
+# Scheme 1: Correct incorporation of dCTP-dG base pair.
+# Scheme 2: Incorrect incorporation of dTTP-dG base pair.
 
-#Simulation time points and dNTP concentrations
+# Simulation time points and dNTP concentrations.
 TimePtsCorrect = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
 TimePtsMismatch = [1, 2, 3, 4, 5, 6, 7, 10, 15, 30, 60]
 
 NTPConcCorrect = [0.625, 1.25, 2.5, 5, 10, 20, 40, 80, 200]
 NTPConcMismatch = [50, 100, 200, 300, 500, 750, 1000, 1500]
 
-##=====================##
-## Fitting Equations
-##====================##
+# Fitting Equations
 def ExpFit(X, a, R):
-	#a,R = p
-	return a *(1-exp(-R*X))
+	# Exponential fit for kobs from [product]
+	return a *(1-np.exp(-R*X))
 
 def PolFit(X, k, r):
+	# Fit for kpol and Kd from kobs and [dNTP]
 	return ((r*X)/(k+X))
 
-##=====================##
-## Fit Functions
-##====================##
-#Takes in the [product] from the kinetic schemes and calculates
-#kpol and Kd as is done with a Pre-Steady-State Kinetic Experiment.
+# Fitting Functions
 def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 	aGuess, kobsGuess, kpolGuess, kdGuess = p0
-	ListOfkObs = []
+	fit_kobs = []
 	idf['TIMEPTS'] = idf.index
-	if iteration == 0: #Generates kobs and kpol plots for the 1st MC erro iteration of each set of rate constants.
+	if iteration == 0: # Generates kobs and kpol plots for the 1st MC error iteration. 
 		plt.clf()
 		for number in NTPlist:
 			data1 = idf['TIMEPTS'].values.tolist()
 			data2 = idf["%s" % number].values.tolist()
 			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
 			a,R = popt[0], popt[1]
-			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
+			fit_kobs.append(R) 
 			plt.plot(data1, data2, 'ko')
 			if TimeList == TimePtsCorrect:
-				fit_time = linspace(0,1,1000)
-				fit_result = [(a*(1-exp(value*-R))) for value in fit_time]
+				fit_time = np.linspace(0,1,1000)
+				fit_result = [(a*(1-np.exp(value*-R))) for value in fit_time]
 				plt.plot(fit_time, fit_result, color = 'C0')
 				plt.title("Correct incorporation")
 			else:
-				fit_time = linspace(0,60,1000)
-				fit_result = [(a*(1-exp(value*-R))) for value in fit_time]
+				fit_time = np.linspace(0,60,1000)
+				fit_result = [(a*(1-np.exp(value*-R))) for value in fit_time]
 				plt.plot(fit_time, fit_result, color = 'C0')
 				plt.title("Incorrect Incorporation - Index %s" % index)
 		# Final plot for all [dNTP]
@@ -106,20 +103,18 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 		plt.savefig(pp, format = 'pdf')
 		plt.clf()
 
-		# Fitting for kpol from kobs values
-		
-		data3 = NTPlist # Data Handling
-		data4 = ListOfkObs		
+		# Fitting for kpol and Kd from kobs values
+		data3 = NTPlist 
+		data4 = fit_kobs		
 		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
-		k, r = popt[0], popt[1]
-		# Plotting	
+		k, r = popt[0], popt[1]	
 		plt.plot(data3, data4, 'ko')
 		if TimeList == TimePtsCorrect:
-			fit_ntp = linspace(0,200,1000)
+			fit_ntp = np.linspace(0,200,1000)
 			fit_result = [(r*x)/(k+x) for x in fit_ntp]
 			plt.title("Correct incorporation")
 		else:
-			fit_ntp = linspace(0,1500,1000)
+			fit_ntp = np.linspace(0,1500,1000)
 			fit_result = [(r*x)/(k+x) for x in fit_ntp]
 			plt.title("Incorrect Incorporation - Index %s" % index)
 		plt.plot(fit_ntp, fit_result)
@@ -136,34 +131,32 @@ def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
 			data2 = idf["%s" % number].values.tolist()
 			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
 			a,R = popt[0], popt[1]
-			ListOfkObs.append(R) #Append kobs to list of kobs for kpol fitting
+			fit_kobs.append(R)
 
-		# Fitting for kpol (k = Kd; r = kpol)
-		data3 = NTPlist # Data Handling
-		data4 = ListOfkObs		
+		data3 = NTPlist 
+		data4 = fit_kobs		
 		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
 		k, r = popt[0], popt[1]
 		return r, k
 
 # Calculates sigma and mu for given input parameter
 def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
-	raw_results = asarray(input_list)
+	raw_results = np.asarray(input_list)
 	del input_list[:]
 	#Outlier Detection Based on Modified Z-score
-	#Outliers with mZ-score > 3.75 are removed from the reported sigma and mu
-	mu, sigma, median_value = raw_results.mean(), raw_results.std(), median(raw_results)
-	adjusted = [math.fabs(x - median_value) for x in raw_results]
-	median_adjusted = median(adjusted)
+	results_median = np.median(raw_results)
+	adjusted = [np.math.fabs(x - results_median) for x in raw_results]
+	median_adjusted = np.median(adjusted)
 	z_score = [(0.6745 * x) / (median_adjusted) for x in adjusted]
 	trim_outliers = [x for (x,y) in zip(raw_results, z_score) if y < 3.75]
-	trim = asarray(trim_outliers)
-	mu_adj, sigma_adj = trim.mean(), trim.std()
+	trimmed = np.asarray(trim_outliers)
+	mu_adj, sigma_adj = trimmed.mean(), trimmed.std()
 	print("Mean of %s" % str(parameter), mu_adj)
 	print("Std Dev of %s" % str(parameter), sigma_adj)
 	
 	fig, ax = plt.subplots(dpi=120)
 	n, bins, patches = plt.hist(raw_results, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	x = linspace(mu_adj - 4 * sigma_adj, mu_adj + 4 * sigma_adj, 100)
+	x = np.linspace(mu_adj - 4 * sigma_adj, mu_adj + 4 * sigma_adj, 100)
 	plt.plot(x, mlab.normpdf(x, mu_adj, sigma_adj))
 	
 	ax.set_xlabel(str(parameter), fontsize=16)
@@ -174,14 +167,11 @@ def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2):
 	listoutput1.append(mu_adj)
 	listoutput2.append(sigma_adj)
 
-#===================
 # Kinetic Schemes
-#===================
+# Correct and Incorrect Simulations share the same set of rate constants, 
+# except inclusion of tautomerization/ionization rate constants.
 
-# Correct and Incorrect Simulations share the same set of rate constants, save for the 
-# inclusion of tautomerization/ionization for incorrect incorporations.
-
-#DataFrame for polymerase microscopic rate constants
+# DataFrame for polymerase microscopic rate constants
 polymerase_df = pd.DataFrame(
 	{"k_1c" : [1900, 1000, 1000],
 	 "k_1i" : [70000, 65000, 70000],
@@ -200,13 +190,14 @@ k2t = k2
 k2i = k2
 
 #===================
-#Mathematics for kinetic scheme #1 Correct Incorporation 
+# Mathematics for kinetic scheme one (Correct Incorporation)
 def SchemeOne(time, conc):
-	C0 = array([1.0, 0.0, 0.0, 0.0]) #Simulation starts with 100% population as E-DNA. 
+	# Simulation starts with 100% population as E-DNA. 
+	C0 = np.array([1.0, 0.0, 0.0, 0.0]) 
 	k1 = conc * 100  # dNTP on rate
 
 	# Rate Matrix
-	K = zeros((4,4))
+	K = np.zeros((4,4))
 	K[0, 0] = -k1
 	K[0, 1] = k_1c
 	K[1, 0] = k1
@@ -218,30 +209,31 @@ def SchemeOne(time, conc):
 	K[3, 2] = k3
 	K[3, 3] = -k_3
 		
-	w,M = linalg.eig(K)
-	M_1 = linalg.inv(M)
+	w,M = np.linalg.eig(K)
+	M_1 = np.linalg.inv(M)
 
-	T = linspace (0, float(time), 2)
-	B = zeros(T.shape)
-	C = zeros(T.shape)
-	D = zeros(T.shape)
-	E = zeros(T.shape)
+	T = np.linspace(0, float(time), 2)
+	B = np.zeros(T.shape)
+	C = np.zeros(T.shape)
+	D = np.zeros(T.shape)
+	E = np.zeros(T.shape)
 
 	for i,t in enumerate(T):
-		A = dot(dot(M,diag(exp(w*t))), M_1)
-		B[i] = dot(A[0,:], C0)
-		C[i] = dot(A[1,:], C0)
-		D[i] = dot(A[2,:], C0)
-		E[i] = dot(A[3,:], C0)
+		A = np.dot(np.dot(M,np.diag(np.exp(w*t))), M_1)
+		B[i] = np.dot(A[0,:], C0)
+		C[i] = np.dot(A[1,:], C0)
+		D[i] = np.dot(A[2,:], C0)
+		E[i] = np.dot(A[3,:], C0)
 	return E[-1]
 
-#Mathematics for kinetic scheme #2 Incorrect Incorporation 
+# Mathematics for kinetic scheme two (Incorrect Incorporation)
 def SchemeTwo(time, conc, rates):
 	kt, k_t, ki, k_i, kti, kit, k_2i = rates
-	C0 = array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+	
+	C0 = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 	k1 = conc * 100 # dNTP on rate	
 
-	K = zeros((6, 6))
+	K = np.zeros((6, 6))
 	K[0, 0] = -k1
 	K[0, 1] = k_1i
 	K[1, 0] = k1
@@ -263,25 +255,25 @@ def SchemeTwo(time, conc, rates):
 	K[5, 4] = k3
 	K[5, 5] = -k_3
 
-	w,M = linalg.eig(K)
-	M_1 = linalg.inv(M)
+	w,M = np.linalg.eig(K)
+	M_1 = np.linalg.inv(M)
 
-	T = linspace (0, float(time), 2)
-	B = zeros(T.shape)
-	C = zeros(T.shape)
-	D = zeros(T.shape)
-	E = zeros(T.shape)
-	F = zeros(T.shape)
-	G = zeros(T.shape)
+	T = np.linspace (0, float(time), 2)
+	B = np.zeros(T.shape)
+	C = np.zeros(T.shape)
+	D = np.zeros(T.shape)
+	E = np.zeros(T.shape)
+	F = np.zeros(T.shape)
+	G = np.zeros(T.shape)
 
 	for i,t in enumerate(T):
-		A = dot(dot(M,diag(exp(w*t))), M_1)
-		B[i] = dot(A[0,:], C0)
-		C[i] = dot(A[1,:], C0)
-		D[i] = dot(A[2,:], C0)
-		E[i] = dot(A[3,:], C0)
-		F[i] = dot(A[4,:], C0)
-		G[i] = dot(A[5,:], C0)
+		A = np.dot(np.dot(M,np.diag(np.exp(w*t))), M_1)
+		B[i] = np.dot(A[0,:], C0)
+		C[i] = np.dot(A[1,:], C0)
+		D[i] = np.dot(A[2,:], C0)
+		E[i] = np.dot(A[3,:], C0)
+		F[i] = np.dot(A[4,:], C0)
+		G[i] = np.dot(A[5,:], C0)
 	return G[-1]		
 
 def RunSchemeOne():
@@ -297,7 +289,7 @@ def RunSchemeTwo(index, iteration, rates):
 	
 	df2 = pd.DataFrame({'TIMEPTS':TimePtsMismatch})
 	for value in NTPConcMismatch:
-		df2["%s" % value] = df2['TIMEPTS'].apply(SchemeTwo, args = (value, rates, ))
+		df2["%s" % value] = df2['TIMEPTS'].apply(SchemeTwo, args = (value, rates,))
 	df2 = df2.set_index('TIMEPTS')
 	kpolTwo, kdTwo = Fitting(df2, TimePtsMismatch, NTPConcMismatch, index, iteration,  p0 = [.99, .5, .5, k_1i / 100])
 	return kpolTwo, kdTwo
@@ -313,21 +305,23 @@ def simulation_routine(index, iteration, params):
     print "kpol:", format(kpol, '.3f'), "kobs[100 uM]:", format(kobs, '.3f'), "Kd:", format(kd, '.0f'), "Fpol:", fobs
     return fobs
 
-######################################
-# Propagating error by drawing
-# parameters from normal distribution
-# given by associated parameter error
-######################################
 
+# Run Simulations with propagating error by drawing parameters from normal distribution
+
+# Run Simulations for Correct Incoporation 
 kpol_correct, kd_correct = RunSchemeOne()
 print "kpol:", format(kpol_correct, '.2f'), "Kd:", format(kd_correct, '.2f')
 
+# Read in rate constants
 RateConstants = pd.read_csv(str(sys.argv[1]))
 RateConstants.columns = ['index', 'kt', 'kt_err', 'k_t', 'k_t_err', 'ki', 'ki_err', 
 							'k_i', 'k_i_err', 'kta', 'kta_err', 'kat', 'kat_err']
 
+# Counter for how many sets of rate constants are being run
 sim_num = len(list(enumerate(RateConstants.index, 1)))
 sim_count = 1
+
+# Set values and error for set of input rate constants
 for value in RateConstants.index:
 	print "Simulation: %s / %s" % (sim_count, sim_num)
 	kt, kt_err = RateConstants.kt[value], RateConstants.kt_err[value]
@@ -337,40 +331,44 @@ for value in RateConstants.index:
 	kat, kat_err = RateConstants.kat[value], RateConstants.kat_err[value]
 	kta, kta_err = RateConstants.kta[value], RateConstants.kta_err[value]
 	
-	#k_2i is assumed equal to k_2t by default. 
-	#This if/then statment sets k_2i to 0 if ki is 0.
-	#This prevents backflow to ES2 via product.
+	# k_2i and k_2t are assumed equal.
+	# This statment sets k_2i to 0 if ES2 in not formed.
+	# This prevents backflow to ES2 via product.
 	if ki == 0 and kta == 0:
 		k_2i = 0
 	else:
 		k_2i = k_2
 
-# Loop over number of MC iterations
+	# Empty lists hold results from MC error iterations for one set of rate constants.
+	# Lists are input into the ErrorAnalysis function and are cleared before running 
+	# the next set of rate constants. 
 	fobs_list = []
 	kpol_list = []
 	kd_list = []
 	kobs_list = []
 
+	# New set of rate constants determined by drawing from a nomral distribution of value and error. 
 	for iteration in range(MC_num):
-		new_kt = random.normal(loc=kt, scale=kt_err)
-		new_k_t = random.normal(loc=k_t, scale=k_t_err)
-		new_ki = random.normal(loc=ki, scale=ki_err)
-		new_k_i = random.normal(loc=k_i, scale=k_i_err)
-		new_kat = random.normal(loc=kat, scale=kat_err)
-		new_kta = random.normal(loc=kta, scale=kta_err)
+		new_kt = np.random.normal(loc=kt, scale=kt_err)
+		new_k_t = np.random.normal(loc=k_t, scale=k_t_err)
+		new_ki = np.random.normal(loc=ki, scale=ki_err)
+		new_k_i = np.random.normal(loc=k_i, scale=k_i_err)
+		new_kat = np.random.normal(loc=kat, scale=kat_err)
+		new_kta = np.random.normal(loc=kta, scale=kta_err)
 
-    	# Now feed these randomly drawn permutations of the parameters to target function
+    	# Now feed these randomly drawn permutations of the parameters to simulations
 		fobs_list.append(simulation_routine(sim_count, iteration, params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
 		print "MC Error Iteration: %s / %s" % (iteration+1, MC_num)
 	sim_count += 1
 
-	ErrorAnalysis("Fobs", fobs_list, pg, fobs_out, fobs_out_err)
-	ErrorAnalysis("kpol", kpol_list, ph, kpol_out, kpol_out_err)
-	ErrorAnalysis("Kd", kd_list, pi, kd_out, kd_out_err)
-	ErrorAnalysis("kobs", kobs_list, pj, kobs_out, kobs_out_err)
+	# Calculates sigma and mu from MC error interations for each parameter
+	ErrorAnalysis("Fobs", fobs_list, pg, fobs_mu, fobs_sigma)
+	ErrorAnalysis("kpol", kpol_list, ph, kpol_mu, kpol_sigma)
+	ErrorAnalysis("Kd", kd_list, pi, kd_mu, kd_sigma)
+	ErrorAnalysis("kobs", kobs_list, pj, kobs_mu, kobs_sigma)
 			
-## Write Out Final Results ##
-Master = zip(fobs_out, fobs_out_err, kpol_out, kpol_out_err, kd_out, kd_out_err, kobs_out, kobs_out_err)
+# Write Out Final Results to 'output.csv'
+Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma, kobs_mu, kobs_sigma)
 error_info = ('Number of MC iteration', '%s' % MC_num)
 heading = ('Fobs (mean)', 'Fobs (Std. Dev.)', 'kpol (mean)',
 			 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 
@@ -382,8 +380,7 @@ with open('output.csv', 'wb') as f:
 	writer.writerow(heading)
 	writer.writerows(Master)
 
-#=========================
-
+# Close PDF files with plots
 pp.close()
 pf.close()
 pg.close()
