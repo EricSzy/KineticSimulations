@@ -189,6 +189,13 @@ k_2t = k_2
 k2t = k2 
 k2i = k2
 
+if str(sys.argv[4]) == 'ES1':
+	k2i = 0
+	k_2i = 0
+elif str(sys.argv[4]) == 'ES2':
+	k2t = 0
+	k_2t = 0
+
 #===================
 # Mathematics for kinetic scheme one (Correct Incorporation)
 def SchemeOne(time, conc):
@@ -369,12 +376,13 @@ for value in RateConstants.index:
 
 # Write Out Final Results to 'output.csv'
 Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma, kobs_mu, kobs_sigma)
-error_info = ('Number of MC iteration', '%s' % MC_num)
-heading = ('Fobs (mean)', 'Fobs (Std. Dev.)', 'kpol (mean)',
+error_info = ('Number of MC iteration', '%s' % MC_num, 'Polymerase',
+				 '%s' % sys.argv[3], 'Model', '%s' % sys.argv[4])
+heading = ('Fpol (mean)', 'Fpol (Std. Dev.)', 'kpol (mean)',
 			 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 
 			 'kobs @ 100uM dNTP', 'kobs_err')
 
-with open('output.csv', 'wb') as f:
+with open('output_%s_%s_%s.csv' % (sys.argv[2], sys.argv[3], sys.argv[4]), 'wb') as f:
 	writer = csv.writer(f)
 	writer.writerow(error_info)
 	writer.writerow(heading)
