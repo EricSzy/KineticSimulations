@@ -309,7 +309,6 @@ def simulation_routine(index, iteration, params):
     kpol_list.append(kpol)
     kd_list.append(kd)
     kobs_list.append(kobs)
-    print "kpol:", format(kpol, '.3f'), "kobs[100 uM]:", format(kobs, '.3f'), "Kd:", format(kd, '.0f'), "Fpol:", fobs
     return fobs
 
 
@@ -364,8 +363,10 @@ for value in RateConstants.index:
 		new_kta = np.random.normal(loc=kta, scale=kta_err)
 
     	# Now feed these randomly drawn permutations of the parameters to simulations
-		fobs_list.append(simulation_routine(sim_count, iteration, params=[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
-		print "MC Error Iteration: %s / %s" % (iteration+1, MC_num)
+		fobs_list.append(simulation_routine(sim_count, iteration, params=
+			[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
+		sys.stdout.write("MC Error: %s / %s    \r" % (iteration+1, MC_num))
+		sys.stdout.flush()
 	
 	# Calculates sigma and mu from MC error interations for each parameter
 	ErrorAnalysis("Fobs", fobs_list, pg, fobs_mu, fobs_sigma, sim_count)
@@ -376,7 +377,7 @@ for value in RateConstants.index:
 
 # Write Out Final Results to 'output.csv'
 Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma, kobs_mu, kobs_sigma)
-error_info = ('Number of MC iteration', '%s' % MC_num, 'Polymerase',
+error_info = ('Number of MC iterations', '%s' % MC_num, 'Polymerase',
 				 '%s' % sys.argv[3], 'Model', '%s' % sys.argv[4])
 heading = ('Fpol (mean)', 'Fpol (Std. Dev.)', 'kpol (mean)',
 			 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 
