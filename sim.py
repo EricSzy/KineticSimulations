@@ -87,6 +87,8 @@ def FittingCorrect(df, TimeList, NTPList, p0):
 	ax[1].plot(ntppts, [PolFit(x, k, r) for x in ntppts], color = 'C0')
 	ax[1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
 	ax[1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
+	ax[1].set_title('k$_{pol}$ = %s s$^{-1}$, K$_d$ = %s (uM)' % 
+					(format(r, '.2f'), format(k, '.2f')), fontsize = 18)
 	plt.tight_layout()
 	plt.savefig(pp, format = 'pdf')
 	return r, k
@@ -173,7 +175,7 @@ def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList,
 	
 	ax[0, 1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
 	ax[0, 1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
-	ax[0, 1].set_title('%s MC Error Iterations' % MC_num)
+	ax[0, 1].set_title('%s MC Error Iterations' % MC_num, fontsize = 18)
 
 	ax[1, 0].set_xlabel('F$_{pol}$', fontsize=18)
 	ax[1, 0].set_ylabel("Normalized Counts", fontsize=18)
