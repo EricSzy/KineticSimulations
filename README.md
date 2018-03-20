@@ -33,10 +33,15 @@ This reads in the rate constants and errors from the example_input.csv file and 
 Polymerases:
 
 E = pol epsilon
+
 B = pol Beta
+
 T7 = T7
 
 Incorporaiton Model:
+
 Dual = Both ES1 and ES2 can be incorporated.
+
 ES1 = Only ES1 can be incorporated.
+
 ES2 = Only ES2 can be incorporated.
