@@ -46,6 +46,7 @@ kd_mu, kd_sigma = [], []
 # Simulation time points (s).
 TimePtsCorrect = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
 TimePtsMismatch = [1, 2, 3, 4, 5, 6, 7, 10, 15, 30, 60]
+
 # Simulation dNTP concentrations (uM).
 NTPConcCorrect = [0.625, 1.25, 2.5, 5, 10, 20, 40, 80, 200]
 NTPConcMismatch = [50, 100, 200, 300, 500, 750, 1000, 1500]
@@ -60,17 +61,17 @@ def PolFit(X, k, r):
 	return ((r*X)/(k+X))
 
 # Fitting Functions
-def FittingCorrect(idf, TimeList, NTPList, p0):
+def FittingCorrect(df, TimeList, NTPList, p0):
 	# Fitting and plotting for correct incorporation
 	a0, kobs0, kpol0, kd0 = p0
 	fit_kobs = []
-	idf['TIMEPTS'] = idf.index
+	df['TIMEPTS'] = df.index
 	fig, ax = plt.subplots(1, 2, sharex=False, sharey=False, figsize = (16, 8))
 	timepts = np.linspace(0, max(TimeList), 100)
 	ntppts = np.linspace(0, max(NTPList), 100)
 	for i in NTPList:
-		x = idf['TIMEPTS'].values.tolist()
-		y = idf["%s" % i].values.tolist()
+		x = df['TIMEPTS'].values.tolist()
+		y = df["%s" % i].values.tolist()
 		popt, pcov = curve_fit(ExpFit, x, y, p0 = [a0, kobs0], maxfev = 10000)
 		a,R = popt[0], popt[1]
 		fit_kobs.append(R)
@@ -90,14 +91,14 @@ def FittingCorrect(idf, TimeList, NTPList, p0):
 	plt.savefig(pp, format = 'pdf')
 	return r, k
 
-def Fitting(idf, TimeList, NTPList, p0):
+def Fitting(df, TimeList, NTPList, p0):
 	# Fitting for mismatch incorporation
 	a0, kobs0, kpol0, kd0 = p0
 	fit_kobs = []
-	idf['TIMEPTS'] = idf.index
+	df['TIMEPTS'] = df.index
 	for i in NTPList:
-		x = idf['TIMEPTS'].values.tolist()
-		y = idf["%s" % i].values.tolist()
+		x = df['TIMEPTS'].values.tolist()
+		y = df["%s" % i].values.tolist()
 		popt, pcov = curve_fit(ExpFit, x, y, p0 = [a0, kobs0], maxfev = 10000)
 		a,R = popt[0], popt[1]
 		fit_kobs.append(R)
@@ -125,21 +126,6 @@ def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList,
 
 	fig, ax = plt.subplots(2, 2, sharex=False, sharey=False, 
 							figsize = (16, 16))
-	# Set axis labels and titles
-	ax[0, 0].set_xlabel('Time (s)', fontsize = 18)
-	ax[0, 0].set_ylabel('Fractional Product Formation', fontsize = 18)
-	ax[0, 0].set_title('Index (%s)' % index, fontsize = 18)
-	
-	ax[0, 1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
-	ax[0, 1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
-	ax[0, 1].set_title('', fontsize = 18)
-	
-	ax[1, 0].set_xlabel('F$_{pol}$', fontsize=18)
-	ax[1, 0].set_ylabel("Normalized Counts", fontsize=18)
-	
-	ax[1, 1].set_xlabel('k$_{pol}$ (s$^{-1}$)', fontsize=18)
-	ax[1, 1].set_ylabel("Normalized Counts", fontsize=18)
-	
 	# Plot [0, 0] Product vs. Time
 	for i in NTPList:
 		x = TimeList
@@ -162,23 +148,43 @@ def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList,
 	# Plot [1, 0] Histgram of Fpol values
 	fpolResults = np.asarray(FobsList)
 	del FobsList[:]
-	mu, sigma = Outlier(fpolResults)
-	fobs_mu.append(mu)
-	fobs_sigma.append(sigma)
+	F_mu, F_sigma = Outlier(fpolResults)
+	fobs_mu.append(F_mu)
+	fobs_sigma.append(F_sigma)
 	n, bins, patches = ax[1, 0].hist(fpolResults, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	x = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 100)
-	ax[1, 0].plot(x, mlab.normpdf(x, mu, sigma))
+	x = np.linspace(F_mu - 4 * F_sigma, F_mu + 4 * F_sigma, 100)
+	ax[1, 0].plot(x, mlab.normpdf(x, F_mu, F_sigma))
 
 	# Plot [1, 1] Histgram of kpol values
 	kpolResults = np.asarray(kpolList)
 	del kpolList[:]
-	mu, sigma = Outlier(kpolResults)
-	kpol_mu.append(mu)
-	kpol_sigma.append(sigma)
+	k_mu, k_sigma = Outlier(kpolResults)
+	kpol_mu.append(k_mu)
+	kpol_sigma.append(k_sigma)
 	n, bins, patches = ax[1, 1].hist(kpolResults, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	x = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 100)
-	ax[1, 1].plot(x, mlab.normpdf(x, mu, sigma))
+	x = np.linspace(k_mu - 4 * k_sigma, k_mu + 4 * k_sigma, 100)
+	ax[1, 1].plot(x, mlab.normpdf(x, k_mu, k_sigma))
+	
 	# Format and Save
+	# Set axis labels and titles
+	ax[0, 0].set_xlabel('Time (s)', fontsize = 18)
+	ax[0, 0].set_ylabel('Fractional Product Formation', fontsize = 18)
+	ax[0, 0].set_title('Index (%s)' % index, fontsize = 18)
+	
+	ax[0, 1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
+	ax[0, 1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
+	ax[0, 1].set_title('%s MC Error Iterations' % MC_num)
+
+	ax[1, 0].set_xlabel('F$_{pol}$', fontsize=18)
+	ax[1, 0].set_ylabel("Normalized Counts", fontsize=18)
+	ax[1, 0].set_title('F$_{pol}$ = %s +/- %s s$^{-1}$' % 
+						(format(F_mu, '.2e'), format(F_sigma, '.2e')), fontsize = 18)
+
+	ax[1, 1].set_xlabel('k$_{pol}$ (s$^{-1}$)', fontsize=18)
+	ax[1, 1].set_ylabel("Normalized Counts", fontsize=18)
+	ax[1, 1].set_title('k$_{pol}$ = %s +/- %s s$^{-1}$' % 
+						(format(k_mu, '.2f'), format(k_sigma, '.2f')), fontsize = 18)
+
 	plt.tight_layout()
 	plt.savefig(pp, format = 'pdf')
 	
@@ -365,7 +371,7 @@ sim_count = 1
 
 # Set values and error for set of input rate constants
 for value in RateConstants.index:
-	print "Simulation: %s / %s" % (sim_count, sim_num)
+	print "~~ Simulation: %s / %s ~~" % (sim_count, sim_num)
 	kt, kt_err = RateConstants.kt[value], RateConstants.kt_err[value]
 	k_t, k_t_err = RateConstants.k_t[value], RateConstants.k_t_err[value]
 	ki, ki_err = RateConstants.ki[value], RateConstants.ki_err[value]
@@ -403,7 +409,7 @@ for value in RateConstants.index:
     	# Now feed these randomly drawn permutations of the parameters to simulations
 		simulation_routine(params=
 			[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i])
-		sys.stdout.write("MC Error: %s / %s           \r" % (iteration+1, MC_num))
+		sys.stdout.write("MC Error: %s / %s        \r" % (iteration+1, MC_num))
 		sys.stdout.flush()
 
 	MCErrPlots(RawPtsMCErr, kobs_mc_err, NTPConcMismatch, TimePtsMismatch, kpol_list, kd_list, fobs_list, sim_count)
@@ -422,5 +428,5 @@ with open('Fit_Output.csv', 'wb') as f:
 	writer.writerow(heading)
 	writer.writerows(Master)
 
-# Close PDF files with plots
+# Close PDF file of plots
 pp.close()
