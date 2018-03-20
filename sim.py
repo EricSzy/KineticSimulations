@@ -134,14 +134,18 @@ def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList,
 		y = RawAvg['%s' % i].values.tolist()
 		popt, pcov = curve_fit(ExpFit, x, y, p0 = [1, .5], maxfev = 10000)
 		ax[0, 0].plot(x, y, 'ko')
-		ax[0, 0].errorbar(x, y, yerr = [(j-k)/2 for (j, k) in zip(RawMax["%s" % i].values.tolist(), RawMin["%s" % i].values.tolist())],
+		UpperError = [j - k for (j, k) in zip(RawMax["%s" % i].values.tolist(),RawAvg["%s" % i].values.tolist())]
+		LowerError = [j - k for (j, k) in zip(RawAvg["%s" % i].values.tolist(),RawMin["%s" % i].values.tolist())]
+		ax[0, 0].errorbar(x, y, yerr = [LowerError, UpperError],
 					color = 'k', linesytle = 'none', fmt = 'none')
 		fY = [ExpFit(x, popt[0], popt[1]) for x in timepts]
 		ax[0, 0].plot(timepts, fY, alpha = 0.5, color = 'C0', zorder = 0)
 	
 	# Plot [0, 1] kobs vs. [dNTP]
 	ax[0, 1].scatter(NTPList, kobsAvg, color = 'k', zorder = 10)
-	ax[0, 1].errorbar(NTPList, kobsAvg, yerr = [(x - y)/2 for (x, y) in zip(kobsMax, kobsMin)], 
+	UpperError = [j - k for (j, k) in zip(kobsMax, kobsAvg)]
+	LowerError = [j - k for (j, k) in zip(kobsAvg, kobsMin)]
+	ax[0, 1].errorbar(NTPList, kobsAvg, yerr = [LowerError, UpperError], 
 				color = 'k', linestyle = 'None', fmt = 'none')
 	for (r, k) in zip(kpolList, kdList):
 		fY = [PolFit(x, k, r) for x in ntppts]
