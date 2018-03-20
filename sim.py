@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # Import Dependences
 import sys
 import csv
@@ -31,34 +29,24 @@ if str(sys.argv[1]) == "-setup":
 		writer.writerow(setup_head)
 		exit()
 
-## PDFs for output plots
-pp = PdfPages('kobs_plots.pdf')
-pf = PdfPages('kpol_plots.pdf')
-pg = PdfPages('Fpol_Histogram.pdf')
-ph = PdfPages('kpol_Histogram.pdf')
-pi = PdfPages('Kd_Histogram.pdf')
-pj = PdfPages('kobs_Histogram.pdf')
-
-# Empty lists for holding output results
-fobs_mu = []
-fobs_sigma = []
-kpol_mu = []
-kpol_sigma = []
-kd_mu = []
-kd_sigma = []
-kobs_mu = []
-kobs_sigma = []
+# Open PDF for output plots
+pp = PdfPages('Fit_Plots.pdf')
 
 # Number of MonteCarlo iterations
 MC_num = int(sys.argv[2])
 
+# Create empty lists for holding final output results
+fobs_mu, fobs_sigma = [], []
+kpol_mu, kpol_sigma = [], []
+kd_mu, kd_sigma = [], []
+
 # Scheme 1: Correct incorporation of dCTP-dG base pair.
 # Scheme 2: Incorrect incorporation of dTTP-dG base pair.
 
-# Simulation time points and dNTP concentrations.
+# Simulation time points (s).
 TimePtsCorrect = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
 TimePtsMismatch = [1, 2, 3, 4, 5, 6, 7, 10, 15, 30, 60]
-
+# Simulation dNTP concentrations (uM).
 NTPConcCorrect = [0.625, 1.25, 2.5, 5, 10, 20, 40, 80, 200]
 NTPConcMismatch = [50, 100, 200, 300, 500, 750, 1000, 1500]
 
@@ -72,100 +60,147 @@ def PolFit(X, k, r):
 	return ((r*X)/(k+X))
 
 # Fitting Functions
-def Fitting(idf, TimeList, NTPlist, index, iteration, p0):
-	aGuess, kobsGuess, kpolGuess, kdGuess = p0
+def FittingCorrect(idf, TimeList, NTPList, p0):
+	# Fitting and plotting for correct incorporation
+	a0, kobs0, kpol0, kd0 = p0
 	fit_kobs = []
 	idf['TIMEPTS'] = idf.index
-	if iteration == 0: # Generates kobs and kpol plots for the 1st MC error iteration. 
-		plt.clf()
-		for number in NTPlist:
-			data1 = idf['TIMEPTS'].values.tolist()
-			data2 = idf["%s" % number].values.tolist()
-			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
-			a,R = popt[0], popt[1]
-			fit_kobs.append(R) 
-			plt.plot(data1, data2, 'ko')
-			if TimeList == TimePtsCorrect:
-				fit_time = np.linspace(0,1,1000)
-				fit_result = [(a*(1-np.exp(value*-R))) for value in fit_time]
-				plt.plot(fit_time, fit_result, color = 'C0')
-				plt.title("Correct incorporation")
-			else:
-				fit_time = np.linspace(0,60,1000)
-				fit_result = [(a*(1-np.exp(value*-R))) for value in fit_time]
-				plt.plot(fit_time, fit_result, color = 'C0')
-				plt.title("Incorrect Incorporation - Index %s" % index)
-		# Final plot for all [dNTP]
-		plt.ylabel('Product', fontsize = 14)
-		plt.xlabel('time (s)', fontsize = 14)
-		plt.ylim(0, 1.1)
-		plt.tight_layout()
-		plt.savefig(pp, format = 'pdf')
-		plt.clf()
+	fig, ax = plt.subplots(1, 2, sharex=False, sharey=False, figsize = (16, 8))
+	timepts = np.linspace(0, max(TimeList), 100)
+	ntppts = np.linspace(0, max(NTPList), 100)
+	for i in NTPList:
+		x = idf['TIMEPTS'].values.tolist()
+		y = idf["%s" % i].values.tolist()
+		popt, pcov = curve_fit(ExpFit, x, y, p0 = [a0, kobs0], maxfev = 10000)
+		a,R = popt[0], popt[1]
+		fit_kobs.append(R)
+		ax[0].plot(x, y, 'ko')
+		ax[0].plot(timepts, [ExpFit(x, popt[0], popt[1]) for x in timepts], color = 'C0')
+	ax[0].set_xlabel('Time (s)', fontsize = 18)
+	ax[0].set_ylabel('Fractional Product Formation', fontsize = 18)
+	ax[0].set_title('Correct Incorporation', fontsize = 18)
 
-		# Fitting for kpol and Kd from kobs values
-		data3 = NTPlist 
-		data4 = fit_kobs		
-		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
-		k, r = popt[0], popt[1]	
-		plt.plot(data3, data4, 'ko')
-		if TimeList == TimePtsCorrect:
-			fit_ntp = np.linspace(0,200,1000)
-			fit_result = [(r*x)/(k+x) for x in fit_ntp]
-			plt.title("Correct incorporation")
-		else:
-			fit_ntp = np.linspace(0,1500,1000)
-			fit_result = [(r*x)/(k+x) for x in fit_ntp]
-			plt.title("Incorrect Incorporation - Index %s" % index)
-		plt.plot(fit_ntp, fit_result)
-		plt.xlabel('dNTP concentration (uM)', fontsize=14)
-		plt.ylabel('kobs (s$^{-1}$)', fontsize = 14)
-		plt.tight_layout()
-		plt.savefig(pf, format = 'pdf')
-		plt.clf()
-		return r, k
-	
-	else: 
-		for number in NTPlist:
-			data1 = idf['TIMEPTS'].values.tolist()
-			data2 = idf["%s" % number].values.tolist()
-			popt, pcov = curve_fit(ExpFit, data1, data2, p0 = [aGuess, kobsGuess], maxfev = 10000)
-			a,R = popt[0], popt[1]
-			fit_kobs.append(R)
-
-		data3 = NTPlist 
-		data4 = fit_kobs		
-		popt, pcov = curve_fit(PolFit, data3, data4, p0 = [kpolGuess, kdGuess], maxfev = 10000)
-		k, r = popt[0], popt[1]
-		return r, k
-
-# Calculates sigma and mu for given input parameter
-def ErrorAnalysis(parameter, input_list, fileoutput, listoutput1, listoutput2, index):
-	raw_results = np.asarray(input_list)
-	del input_list[:]
-	#Outlier Detection Based on Modified Z-score
-	results_median = np.median(raw_results)
-	adjusted = [np.math.fabs(x - results_median) for x in raw_results]
-	median_adjusted = np.median(adjusted)
-	z_score = [(0.6745 * x) / (median_adjusted) for x in adjusted]
-	trim_outliers = [x for (x,y) in zip(raw_results, z_score) if y < 3.75]
-	trimmed = np.asarray(trim_outliers)
-	mu_adj, sigma_adj = trimmed.mean(), trimmed.std()
-	print("Mean of %s" % str(parameter), mu_adj)
-	print("Std Dev of %s" % str(parameter), sigma_adj)
-	
-	fig, ax = plt.subplots(dpi=120)
-	n, bins, patches = plt.hist(raw_results, 60, normed=1, facecolor='skyblue', alpha=0.75)
-	x = np.linspace(mu_adj - 4 * sigma_adj, mu_adj + 4 * sigma_adj, 100)
-	plt.plot(x, mlab.normpdf(x, mu_adj, sigma_adj))
-	
-	ax.set_xlabel(str(parameter), fontsize=16)
-	ax.set_ylabel("Normalized Counts", fontsize=16)
-	ax.set_title(r"$%s\,|\,\mu=%0.6f\,|\,\sigma=%0.6f$ | index = %s" % (parameter, mu_adj, sigma_adj, index), fontsize=14)
+	popt, pcov = curve_fit(PolFit, NTPList, fit_kobs, p0 = [kpol0, kd0], maxfev = 10000)
+	k, r = popt[0], popt[1]
+	ax[1].plot(NTPList, fit_kobs, 'ko')
+	ax[1].plot(ntppts, [PolFit(x, k, r) for x in ntppts], color = 'C0')
+	ax[1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
+	ax[1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
 	plt.tight_layout()
-	plt.savefig(fileoutput, format = 'pdf')
-	listoutput1.append(mu_adj)
-	listoutput2.append(sigma_adj)
+	plt.savefig(pp, format = 'pdf')
+	return r, k
+
+def Fitting(idf, TimeList, NTPList, p0):
+	# Fitting for mismatch incorporation
+	a0, kobs0, kpol0, kd0 = p0
+	fit_kobs = []
+	idf['TIMEPTS'] = idf.index
+	for i in NTPList:
+		x = idf['TIMEPTS'].values.tolist()
+		y = idf["%s" % i].values.tolist()
+		popt, pcov = curve_fit(ExpFit, x, y, p0 = [a0, kobs0], maxfev = 10000)
+		a,R = popt[0], popt[1]
+		fit_kobs.append(R)
+	if TimeList == TimePtsMismatch:
+		kobs_mc_err.append(fit_kobs)
+	popt, pcov = curve_fit(PolFit, NTPList, fit_kobs, p0 = [kpol0, kd0], maxfev = 10000)
+	k, r = popt[0], popt[1]
+	return r, k
+
+def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList, 
+				kpolList, kdList, FobsList, index):
+	#MC Error analysis and plotting for mismatch incorporation
+	RawPts_df = pd.concat(RawPtsList)
+	RawAvg = RawPts_df.reset_index(drop=True).groupby('TIMEPTS').mean()
+	RawMin = RawPts_df.reset_index(drop=True).groupby('TIMEPTS').apply(min)
+	RawMax = RawPts_df.reset_index(drop=True).groupby('TIMEPTS').apply(max)
+
+	kobs_df = pd.DataFrame(kobsList)
+	kobsAvg = kobs_df.mean()
+	kobsMin = kobs_df.apply(min)
+	kobsMax = kobs_df.apply(max)
+
+	timepts = np.linspace(0, max(TimeList), 100)
+	ntppts = np.linspace(0, max(NTPList), 100)
+
+	fig, ax = plt.subplots(2, 2, sharex=False, sharey=False, 
+							figsize = (16, 16))
+	# Set axis labels and titles
+	ax[0, 0].set_xlabel('Time (s)', fontsize = 18)
+	ax[0, 0].set_ylabel('Fractional Product Formation', fontsize = 18)
+	ax[0, 0].set_title('Index (%s)' % index, fontsize = 18)
+	
+	ax[0, 1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
+	ax[0, 1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
+	ax[0, 1].set_title('', fontsize = 18)
+	
+	ax[1, 0].set_xlabel('F$_{pol}$', fontsize=18)
+	ax[1, 0].set_ylabel("Normalized Counts", fontsize=18)
+	
+	ax[1, 1].set_xlabel('k$_{pol}$ (s$^{-1}$)', fontsize=18)
+	ax[1, 1].set_ylabel("Normalized Counts", fontsize=18)
+	
+	# Plot [0, 0] Product vs. Time
+	for i in NTPList:
+		x = TimeList
+		y = RawAvg['%s' % i].values.tolist()
+		popt, pcov = curve_fit(ExpFit, x, y, p0 = [1, .5], maxfev = 10000)
+		ax[0, 0].plot(x, y, 'ko')
+		ax[0, 0].errorbar(x, y, yerr = [(j-k)/2 for (j, k) in zip(RawMax["%s" % i].values.tolist(), RawMin["%s" % i].values.tolist())],
+					color = 'k', linesytle = 'none', fmt = 'none')
+		fY = [ExpFit(x, popt[0], popt[1]) for x in timepts]
+		ax[0, 0].plot(timepts, fY, alpha = 0.5, color = 'C0', zorder = 0)
+	
+	# Plot [0, 1] kobs vs. [dNTP]
+	ax[0, 1].scatter(NTPList, kobsAvg, color = 'k', zorder = 10)
+	ax[0, 1].errorbar(NTPList, kobsAvg, yerr = [(x - y)/2 for (x, y) in zip(kobsMax, kobsMin)], 
+				color = 'k', linestyle = 'None', fmt = 'none')
+	for (r, k) in zip(kpolList, kdList):
+		fY = [PolFit(x, k, r) for x in ntppts]
+		ax[0, 1].plot(ntppts, fY, alpha = 0.5, color = 'C0', zorder = 0)
+	
+	# Plot [1, 0] Histgram of Fpol values
+	fpolResults = np.asarray(FobsList)
+	del FobsList[:]
+	mu, sigma = Outlier(fpolResults)
+	fobs_mu.append(mu)
+	fobs_sigma.append(sigma)
+	n, bins, patches = ax[1, 0].hist(fpolResults, 60, normed=1, facecolor='skyblue', alpha=0.75)
+	x = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 100)
+	ax[1, 0].plot(x, mlab.normpdf(x, mu, sigma))
+
+	# Plot [1, 1] Histgram of kpol values
+	kpolResults = np.asarray(kpolList)
+	del kpolList[:]
+	mu, sigma = Outlier(kpolResults)
+	kpol_mu.append(mu)
+	kpol_sigma.append(sigma)
+	n, bins, patches = ax[1, 1].hist(kpolResults, 60, normed=1, facecolor='skyblue', alpha=0.75)
+	x = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 100)
+	ax[1, 1].plot(x, mlab.normpdf(x, mu, sigma))
+	# Format and Save
+	plt.tight_layout()
+	plt.savefig(pp, format = 'pdf')
+	
+	# Kd - Not Plotted - Written to output .csv file
+	kdResults = np.asarray(kdList)
+	del kdList[:]
+	mu, sigma = Outlier(kdResults)
+	kd_mu.append(mu)
+	kd_sigma.append(sigma)
+
+def Outlier(InputList):
+	# Removes outliers based on modified z-score
+	# for the sigma/mu for histogram fit.
+	# All raw data is still plotted in histogram.
+	MedianValue = np.median(InputList)
+	AdjustedResults = [np.math.fabs(x - MedianValue) for x in InputList]
+	AdjustedMedian = np.median(AdjustedResults)
+	z_score = [(0.6745 * x) / (AdjustedMedian) for x in AdjustedResults]
+	trim_outliers = [x for (x,y) in zip(InputList, z_score) if y < 3.75]
+	TrimmedResults = np.asarray(trim_outliers)
+	mu_adj, sigma_adj = TrimmedResults.mean(), TrimmedResults.std()
+	return mu_adj, sigma_adj
 
 # Kinetic Schemes
 # Correct and Incorrect Simulations share the same set of rate constants, 
@@ -286,36 +321,36 @@ def SchemeTwo(time, conc, rates):
 def RunSchemeOne():
 	
 	df = pd.DataFrame({'TIMEPTS':TimePtsCorrect})
-	for value in NTPConcCorrect:
-		df["%s" % value] = df['TIMEPTS'].apply(SchemeOne, args = (value,))
+	for i in NTPConcCorrect:
+		df["%s" % i] = df['TIMEPTS'].apply(SchemeOne, args = (i,))
 	df = df.set_index('TIMEPTS')
-	kpolOne, kdOne = Fitting(df, TimePtsCorrect, NTPConcCorrect, 0, 0,  p0 = [.99, 5, fitc_guess, k_1c / 100])
+	kpolOne, kdOne = FittingCorrect(df, TimePtsCorrect, NTPConcCorrect, p0 = [.99, 5, fitc_guess, k_1c / 100])
 	return kpolOne, kdOne
 
-def RunSchemeTwo(index, iteration, rates):
+def RunSchemeTwo(rates):
 	
 	df2 = pd.DataFrame({'TIMEPTS':TimePtsMismatch})
-	for value in NTPConcMismatch:
-		df2["%s" % value] = df2['TIMEPTS'].apply(SchemeTwo, args = (value, rates,))
+	for i in NTPConcMismatch:
+		df2["%s" % i] = df2['TIMEPTS'].apply(SchemeTwo, args = (i, rates,))
 	df2 = df2.set_index('TIMEPTS')
-	kpolTwo, kdTwo = Fitting(df2, TimePtsMismatch, NTPConcMismatch, index, iteration,  p0 = [.99, .5, .5, k_1i / 100])
-	return kpolTwo, kdTwo
+	kpolTwo, kdTwo = Fitting(df2, TimePtsMismatch, NTPConcMismatch, p0 = [.99, .5, .5, k_1i / 100])
+	return kpolTwo, kdTwo, df2
 
-def simulation_routine(index, iteration, params):
+def simulation_routine(params):
 
-    kpol, kd = RunSchemeTwo(index, iteration, params)
+    kpol, kd, raw_pts = RunSchemeTwo(params)
     fobs = (kpol / kd) / (kpol_correct / kd_correct)
-    kobs = (kpol * 100) / (kd + 100)
     kpol_list.append(kpol)
     kd_list.append(kd)
-    kobs_list.append(kobs)
-    return fobs
-
+    fobs_list.append(fobs)
+    RawPtsMCErr.append(raw_pts)
+    
 
 # Run Simulations with propagating error by drawing parameters from normal distribution
 
 # Run Simulations for Correct Incoporation 
 kpol_correct, kd_correct = RunSchemeOne()
+
 print "kpol:", format(kpol_correct, '.2f'), "Kd:", format(kd_correct, '.2f')
 
 # Read in rate constants
@@ -325,6 +360,7 @@ RateConstants.columns = ['index', 'kt', 'kt_err', 'k_t', 'k_t_err', 'ki', 'ki_er
 
 # Counter for how many sets of rate constants are being run
 sim_num = len(list(enumerate(RateConstants.index, 1)))
+# Counter initalized at 1
 sim_count = 1
 
 # Set values and error for set of input rate constants
@@ -348,12 +384,13 @@ for value in RateConstants.index:
 	# Empty lists hold results from MC error iterations for one set of rate constants.
 	# Lists are input into the ErrorAnalysis function and are cleared before running 
 	# the next set of rate constants. 
+	kobs_mc_err = []
 	fobs_list = []
 	kpol_list = []
 	kd_list = []
-	kobs_list = []
-
+	RawPtsMCErr = []
 	# New set of rate constants determined by drawing from a nomral distribution of value and error. 
+	
 	for iteration in range(MC_num):
 		new_kt = np.random.normal(loc=kt, scale=kt_err)
 		new_k_t = np.random.normal(loc=k_t, scale=k_t_err)
@@ -362,28 +399,24 @@ for value in RateConstants.index:
 		new_kat = np.random.normal(loc=kat, scale=kat_err)
 		new_kta = np.random.normal(loc=kta, scale=kta_err)
 
+
     	# Now feed these randomly drawn permutations of the parameters to simulations
-		fobs_list.append(simulation_routine(sim_count, iteration, params=
-			[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i]))
-		sys.stdout.write("MC Error: %s / %s    \r" % (iteration+1, MC_num))
+		simulation_routine(params=
+			[new_kt, new_k_t, new_ki, new_k_i, new_kat, new_kta, k_2i])
+		sys.stdout.write("MC Error: %s / %s           \r" % (iteration+1, MC_num))
 		sys.stdout.flush()
-	
-	# Calculates sigma and mu from MC error interations for each parameter
-	ErrorAnalysis("Fobs", fobs_list, pg, fobs_mu, fobs_sigma, sim_count)
-	ErrorAnalysis("kpol", kpol_list, ph, kpol_mu, kpol_sigma, sim_count)
-	ErrorAnalysis("Kd", kd_list, pi, kd_mu, kd_sigma, sim_count)
-	ErrorAnalysis("kobs", kobs_list, pj, kobs_mu, kobs_sigma, sim_count)
+
+	MCErrPlots(RawPtsMCErr, kobs_mc_err, NTPConcMismatch, TimePtsMismatch, kpol_list, kd_list, fobs_list, sim_count)
 	sim_count += 1
 
 # Write Out Final Results to 'output.csv'
-Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma, kobs_mu, kobs_sigma)
+Master = zip(fobs_mu, fobs_sigma, kpol_mu, kpol_sigma, kd_mu, kd_sigma)
 error_info = ('Number of MC iterations', '%s' % MC_num, 'Polymerase',
 				 '%s' % sys.argv[3], 'Model', '%s' % sys.argv[4])
 heading = ('Fpol (mean)', 'Fpol (Std. Dev.)', 'kpol (mean)',
-			 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev', 
-			 'kobs @ 100uM dNTP', 'kobs_err')
+			 'kpol (Std.Dev)', 'Kd (mean)', 'Kd (Std. Dev)')
 
-with open('output_%s_%s_%s.csv' % (sys.argv[2], sys.argv[3], sys.argv[4]), 'wb') as f:
+with open('Fit_Output.csv', 'wb') as f:
 	writer = csv.writer(f)
 	writer.writerow(error_info)
 	writer.writerow(heading)
@@ -391,8 +424,3 @@ with open('output_%s_%s_%s.csv' % (sys.argv[2], sys.argv[3], sys.argv[4]), 'wb')
 
 # Close PDF files with plots
 pp.close()
-pf.close()
-pg.close()
-ph.close()
-pi.close()
-pj.close()
