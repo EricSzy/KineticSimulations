@@ -64,11 +64,13 @@ def PolFit(X, k, r):
 def FittingCorrect(df, TimeList, NTPList, p0):
 	# Fitting and plotting for correct incorporation
 	a0, kobs0, kpol0, kd0 = p0
+	# Empty list for holding fitted kobs values
 	fit_kobs = []
 	df['TIMEPTS'] = df.index
 	fig, ax = plt.subplots(1, 2, sharex=False, sharey=False, figsize = (16, 8))
 	timepts = np.linspace(0, max(TimeList), 100)
 	ntppts = np.linspace(0, max(NTPList), 100)
+	# Fit for kobs from product and time for each [NTP]
 	for i in NTPList:
 		x = df['TIMEPTS'].values.tolist()
 		y = df["%s" % i].values.tolist()
@@ -80,15 +82,17 @@ def FittingCorrect(df, TimeList, NTPList, p0):
 	ax[0].set_xlabel('Time (s)', fontsize = 18)
 	ax[0].set_ylabel('Fractional Product Formation', fontsize = 18)
 	ax[0].set_title('Correct Incorporation', fontsize = 18)
-
+	ax[0].tick_params(axis = 'both', labelsize = 16)
+	# For for kpol (r) and Kd (k) from kobs and [NTP]
 	popt, pcov = curve_fit(PolFit, NTPList, fit_kobs, p0 = [kpol0, kd0], maxfev = 10000)
 	k, r = popt[0], popt[1]
 	ax[1].plot(NTPList, fit_kobs, 'ko')
 	ax[1].plot(ntppts, [PolFit(x, k, r) for x in ntppts], color = 'C0')
 	ax[1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
 	ax[1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
-	ax[1].set_title('k$_{pol}$ = %s s$^{-1}$, K$_d$ = %s (uM)' % 
+	ax[1].set_title('k$_{pol}$ = %s s$^{-1}$, K$_d$ = %s uM' % 
 					(format(r, '.2f'), format(k, '.2f')), fontsize = 18)
+	ax[1].tick_params(axis = 'both', labelsize = 16)
 	plt.tight_layout()
 	plt.savefig(pp, format = 'pdf')
 	return r, k
@@ -96,16 +100,18 @@ def FittingCorrect(df, TimeList, NTPList, p0):
 def Fitting(df, TimeList, NTPList, p0):
 	# Fitting for mismatch incorporation
 	a0, kobs0, kpol0, kd0 = p0
+	# Empty list for holding fitted kobs values
 	fit_kobs = []
 	df['TIMEPTS'] = df.index
+	# Fit for kobs from product and time for each [NTP]
 	for i in NTPList:
 		x = df['TIMEPTS'].values.tolist()
 		y = df["%s" % i].values.tolist()
 		popt, pcov = curve_fit(ExpFit, x, y, p0 = [a0, kobs0], maxfev = 10000)
 		a,R = popt[0], popt[1]
 		fit_kobs.append(R)
-	if TimeList == TimePtsMismatch:
-		kobs_mc_err.append(fit_kobs)
+	kobs_mc_err.append(fit_kobs)
+	# For for kpol (r) and Kd (k) from kobs and [NTP]
 	popt, pcov = curve_fit(PolFit, NTPList, fit_kobs, p0 = [kpol0, kd0], maxfev = 10000)
 	k, r = popt[0], popt[1]
 	return r, k
@@ -176,20 +182,25 @@ def MCErrPlots(RawPtsList, kobsList, NTPList, TimeList,
 	ax[0, 0].set_xlabel('Time (s)', fontsize = 18)
 	ax[0, 0].set_ylabel('Fractional Product Formation', fontsize = 18)
 	ax[0, 0].set_title('Index (%s)' % index, fontsize = 18)
+	ax[0, 0].tick_params(axis = 'both', labelsize = 16)
 	
 	ax[0, 1].set_xlabel('dNTP Concentration (uM)', fontsize = 18)
 	ax[0, 1].set_ylabel('k$_{obs}$ s$^{-1}$', fontsize = 18)
 	ax[0, 1].set_title('%s MC Error Iterations' % MC_num, fontsize = 18)
+	ax[0, 1].tick_params(axis = 'both', labelsize = 16)
 
 	ax[1, 0].set_xlabel('F$_{pol}$', fontsize=18)
 	ax[1, 0].set_ylabel("Normalized Counts", fontsize=18)
-	ax[1, 0].set_title('F$_{pol}$ = %s +/- %s s$^{-1}$' % 
+	ax[1, 0].set_title('F$_{pol}$ = %s +/- %s' % 
 						(format(F_mu, '.2e'), format(F_sigma, '.2e')), fontsize = 18)
+	ax[1, 0].tick_params(axis = 'both', labelsize = 16)
+	ax[1, 0].ticklabel_format(style='sci', axis = 'x', scilimits=(0,0))
 
 	ax[1, 1].set_xlabel('k$_{pol}$ (s$^{-1}$)', fontsize=18)
 	ax[1, 1].set_ylabel("Normalized Counts", fontsize=18)
 	ax[1, 1].set_title('k$_{pol}$ = %s +/- %s s$^{-1}$' % 
 						(format(k_mu, '.2f'), format(k_sigma, '.2f')), fontsize = 18)
+	ax[1, 1].tick_params(axis = 'both', labelsize = 16)
 
 	plt.tight_layout()
 	plt.savefig(pp, format = 'pdf')
